@@ -6,7 +6,7 @@ namespace pong
     class Game final
     {
         public:
-            Game();
+            Game(int argc, char** argv);
             ~Game();
 
             void start();
