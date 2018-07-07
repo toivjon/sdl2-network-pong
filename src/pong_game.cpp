@@ -8,7 +8,7 @@
 
 using namespace pong;
 
-Game::Game(int argc, char** argv)
+Game::Game(int argc, char** argv) : mWidth(800), mHeight(600), mWindow(nullptr)
 {
   SDL_Log("Constructing a Game instance....");
 
@@ -32,6 +32,7 @@ Game::~Game()
   SDL_Log("Destructing a Game instance...");
 
   // release all reserved resources.
+  SDL_DestroyWindow(mWindow);
   SDL_Quit();
 
   SDL_Log("Destructing a Game instance completed.");
@@ -39,5 +40,14 @@ Game::~Game()
 
 void Game::start()
 {
+  SDL_Log("Starting the game...");
+
+  // create the main window for the application.
+  mWindow = SDL_CreateWindow("SDL2 - Network Pong", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, mWidth, mHeight, SDL_WINDOW_SHOWN);
+  if (mWindow == nullptr) {
+    SDL_Log("Unable to create SDL window: %s", SDL_GetError());
+    throw "Unable to create SDL window!";
+  }
+
   // ... start the game ...
 }

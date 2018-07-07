@@ -1,6 +1,9 @@
 #ifndef PONG_GAME_H
 #define PONG_GAME_H
 
+// forward declarations.
+struct SDL_Window;
+
 namespace pong
 {
   class Game final
@@ -10,6 +13,10 @@ namespace pong
       ~Game();
 
       void start();
+    private:
+      int         mWidth;
+      int         mHeight;
+      SDL_Window* mWindow;
   };
 }
 
