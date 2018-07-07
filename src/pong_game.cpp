@@ -8,7 +8,7 @@
 
 using namespace pong;
 
-Game::Game(int argc, char** argv) : mWidth(800), mHeight(600), mWindow(nullptr)
+Game::Game(int argc, char** argv) : mWidth(800), mHeight(600), mWindow(nullptr), mRenderer(nullptr)
 {
   SDL_Log("Constructing a Game instance....");
 
@@ -32,6 +32,7 @@ Game::~Game()
   SDL_Log("Destructing a Game instance...");
 
   // release all reserved resources.
+  SDL_DestroyRenderer(mRenderer);
   SDL_DestroyWindow(mWindow);
   SDL_Quit();
 
@@ -47,6 +48,13 @@ void Game::start()
   if (mWindow == nullptr) {
     SDL_Log("Unable to create SDL window: %s", SDL_GetError());
     throw "Unable to create SDL window!";
+  }
+
+  // create a new renderer for the main window of the application.
+  mRenderer = SDL_CreateRenderer(mWindow, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+  if (mRenderer == nullptr) {
+    SDL_Log("Unable to create SDL renderer: %s", SDL_GetError());
+    throw "Unable to create SDL renderer!";
   }
 
   // ... start the game ...

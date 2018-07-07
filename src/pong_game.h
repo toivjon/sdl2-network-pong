@@ -3,6 +3,7 @@
 
 // forward declarations.
 struct SDL_Window;
+struct SDL_Renderer;
 
 namespace pong
 {
@@ -14,9 +15,10 @@ namespace pong
 
       void start();
     private:
-      int         mWidth;
-      int         mHeight;
-      SDL_Window* mWindow;
+      int           mWidth;
+      int           mHeight;
+      SDL_Window*   mWindow;
+      SDL_Renderer* mRenderer;
   };
 }
 
