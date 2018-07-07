@@ -3,16 +3,14 @@
 
 namespace pong
 {
-    class Game final
-    {
-        public:
-            Game(int argc, char** argv);
-            ~Game();
+  class Game final
+  {
+    public:
+      Game(int argc, char** argv);
+      ~Game();
 
-            void start();
-        private:
-            // ...
-    };
+      void start();
+  };
 }
 
 #endif
