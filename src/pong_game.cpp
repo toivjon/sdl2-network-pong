@@ -2,6 +2,7 @@
 
 #include <iterator>
 #include <SDL/SDL.h>
+#include <SDL/SDL_net.h>
 #include <string>
 #include <vector>
 
@@ -23,6 +24,12 @@ Game::Game(int argc, char** argv) : mWidth(800), mHeight(600), mWindow(nullptr),
     throw "Unable to initialize SDL!";
   }
 
+  // initialize the SDL net system.
+  if (SDLNet_Init() != 0) {
+    SDL_Log("Unable to initialize SDL-net: %s", SDLNet_GetError());
+    throw "Unable to initialize SDL-net!";
+  }
+
   SDL_Log("Constructing a Game instance completed.");
 }
 
@@ -33,6 +40,7 @@ Game::~Game()
   // release all reserved resources.
   SDL_DestroyRenderer(mRenderer);
   SDL_DestroyWindow(mWindow);
+  SDLNet_Quit();
   SDL_Quit();
 
   SDL_Log("Destructing a Game instance completed.");

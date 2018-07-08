@@ -5,7 +5,7 @@ CC = g++
 CFLAGS = -std=c++11 -Wall -Wextra
 
 # libraries to link against.
-LFLAGS = -lmingw32 -lSDL2main -lSDL2
+LFLAGS = -lmingw32 -lSDL2main -lSDL2 -lSDL2_net
 
 # the path to object files and executable.
 BUILD_PATH = build
@@ -26,4 +26,3 @@ $(BUILD_PATH)/%.o: $(SRC_PATH)/%.cpp
 # rule to compile the executable.
 all: $(OBJ)
 	$(CC) -o $(BUILD_PATH)/pong.exe $(OBJ) $(CFLAGS) $(LFLAGS)
-	
