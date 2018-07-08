@@ -1,6 +1,5 @@
 #include "pong_game.h"
 
-#include <iostream>
 #include <iterator>
 #include <SDL/SDL.h>
 #include <string>
@@ -57,5 +56,26 @@ void Game::start()
     throw "Unable to create SDL renderer!";
   }
 
-  // ... start the game ...
+  // start the main loop of the application.
+  auto isRunning = true;
+  SDL_Event event;
+  while (isRunning) {
+    // poll and handle events from the SDL framework.
+    while (SDL_PollEvent(&event)) {
+      switch (event.type) {
+        case SDL_QUIT:
+          isRunning = false;
+          break;
+      }
+    }
+
+    // clear the contents of the currently active buffer.
+    SDL_SetRenderDrawColor(mRenderer, 0x00, 0x00, 0x00, 0xff);
+    SDL_RenderClear(mRenderer);
+
+    // TODO ... add draw calls here ...
+
+    // swap and present the current buffer on the screen.
+    SDL_RenderPresent(mRenderer);
+  }
 }
