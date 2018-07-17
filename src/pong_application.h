@@ -1,6 +1,7 @@
 #ifndef PONG_APPLICATION_H
 #define PONG_APPLICATION_H
 
+#include "pong_dynamic_object.h"
 #include "pong_static_object.h"
 
 #include <type_traits>
@@ -43,6 +44,9 @@ namespace pong
       StaticObject        mTopWall;
       StaticObject        mBottomWall;
       StaticObject        mCenterLine;
+      DynamicObject       mLeftPaddle;
+      DynamicObject       mRightPaddle;
+      DynamicObject       mBall;
   };
 }
 

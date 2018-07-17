@@ -15,7 +15,10 @@ Application::Application(int maxsockets)
     mRunning(false),
     mTopWall({0, 0, 800, 20}),
     mBottomWall({0, 580, 800, 20}),
-    mCenterLine({390, 0, 20, 600})
+    mCenterLine({390, 0, 20, 600}),
+    mLeftPaddle({30, 250, 20, 100}),
+    mRightPaddle({750, 250, 20, 100}),
+    mBall({390, 290, 20, 20})
 {
   // initialize SDL along with the subsystems.
   if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
@@ -67,6 +70,11 @@ void Application::render()
   mTopWall.render(*mRenderer);
   mBottomWall.render(*mRenderer);
   mCenterLine.render(*mRenderer);
+
+  // render all dynamic objects in the scene.
+  mLeftPaddle.render(*mRenderer, 0l);
+  mRightPaddle.render(*mRenderer, 0l);
+  mBall.render(*mRenderer, 0l);
 
   // swap and present the current buffer on the screen.
   SDL_RenderPresent(mRenderer);
