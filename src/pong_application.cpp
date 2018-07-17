@@ -8,7 +8,14 @@
 
 using namespace pong;
 
-Application::Application(int maxsockets) : mWindow(NULL), mRenderer(NULL), mSocketSet(NULL), mRunning(false)
+Application::Application(int maxsockets)
+  : mWindow(NULL),
+    mRenderer(NULL),
+    mSocketSet(NULL),
+    mRunning(false),
+    mTopWall({0, 0, 800, 20}),
+    mBottomWall({0, 580, 800, 20}),
+    mCenterLine({390, 0, 20, 600})
 {
   // initialize SDL along with the subsystems.
   if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
@@ -56,7 +63,10 @@ void Application::render()
   SDL_SetRenderDrawColor(mRenderer, 0x00, 0x00, 0x00, 0xff);
   SDL_RenderClear(mRenderer);
 
-  // TODO ... add draw calls here ...
+  // render all static objects in the scene.
+  mTopWall.render(*mRenderer);
+  mBottomWall.render(*mRenderer);
+  mCenterLine.render(*mRenderer);
 
   // swap and present the current buffer on the screen.
   SDL_RenderPresent(mRenderer);

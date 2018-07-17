@@ -1,7 +1,10 @@
 #ifndef PONG_APPLICATION_H
 #define PONG_APPLICATION_H
 
+#include "pong_static_object.h"
+
 #include <type_traits>
+#include <vector>
 
 #define MAX_PACKAGE_SIZE 1024
 
@@ -33,10 +36,13 @@ namespace pong
       void render();
       void tickSDL();
     protected:
-      SDL_Window*        mWindow;
-      SDL_Renderer*      mRenderer;
-      _SDLNet_SocketSet* mSocketSet;
-      bool               mRunning;
+      SDL_Window*         mWindow;
+      SDL_Renderer*       mRenderer;
+      _SDLNet_SocketSet*  mSocketSet;
+      bool                mRunning;
+      StaticObject        mTopWall;
+      StaticObject        mBottomWall;
+      StaticObject        mCenterLine;
   };
 }
 
