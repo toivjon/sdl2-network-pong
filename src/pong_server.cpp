@@ -75,7 +75,7 @@ void Server::tickSockets()
           printf("SDLNet_TCP_AddSocket: %s\n", SDLNet_GetError());
           exit(-1);
         }
-        printf("A new client joined the server.\n");
+        printf("A client joined the server.\n");
       }
     }
 
@@ -87,6 +87,7 @@ void Server::tickSockets()
         SDLNet_TCP_DelSocket(mSocketSet, mClientSocket);
         SDLNet_TCP_Close(mClientSocket);
         mClientSocket = NULL;
+        setRunning(false);
       }
       // TODO handle buffer contents...
     }

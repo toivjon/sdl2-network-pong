@@ -27,6 +27,7 @@ Client::Client(const std::string& host) : Application(1)
     printf("SDLNet_TCP_AddSocket: %s\n", SDLNet_GetError());
     exit(-1);
   }
+  printf("Successfully joined the server.\n");
 }
 
 Client::~Client()
