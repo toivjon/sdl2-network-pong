@@ -88,6 +88,12 @@ void Application::tickSDL()
       case SDL_QUIT:
         setRunning(false);
         break;
+      case SDL_KEYUP:
+        onKeyUp(event.key);
+        break;
+      case SDL_KEYDOWN:
+        onKeyDown(event.key);
+        break;
     }
   }
 }

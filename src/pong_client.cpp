@@ -65,3 +65,27 @@ void Client::tickSocket()
       }
     }
 }
+
+void Client::onKeyDown(const SDL_KeyboardEvent& event)
+{
+  switch (event.keysym.sym) {
+    case SDLK_UP:
+      break;
+    case SDLK_DOWN:
+      break;
+    default:
+      break;
+  }
+}
+
+void Client::onKeyUp(const SDL_KeyboardEvent& event)
+{
+  switch (event.keysym.sym) {
+    case SDLK_UP:
+      break;
+    case SDLK_DOWN:
+      break;
+    default:
+      break;
+  }
+}

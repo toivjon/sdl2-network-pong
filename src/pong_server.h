@@ -22,6 +22,9 @@ namespace pong
       ~Server();
 
       void start();
+
+      void onKeyUp(const SDL_KeyboardEvent& event) override;
+      void onKeyDown(const SDL_KeyboardEvent& event) override;
     private:
       void tickSockets();
     private:

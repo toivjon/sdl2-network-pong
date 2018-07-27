@@ -30,6 +30,9 @@ namespace pong
 
       virtual ~Application();
 
+      virtual void onKeyUp(const SDL_KeyboardEvent& event) = 0;
+      virtual void onKeyDown(const SDL_KeyboardEvent& event) = 0;
+
       void setRunning(bool running) { mRunning = running; }
 
       bool isRunning() const { return mRunning; }
