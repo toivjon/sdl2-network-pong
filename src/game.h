@@ -1,6 +1,8 @@
 #ifndef PONG_GAME_H
 #define PONG_GAME_H
 
+struct SDL_Window;
+
 namespace pong
 {
   class Game final
@@ -23,6 +25,8 @@ namespace pong
       // This function will return after the game has been successfully closed.
       // ======================================================================
       void run();
+    private:
+      SDL_Window* mWindow;
   };
 }
 
