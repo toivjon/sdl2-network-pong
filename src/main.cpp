@@ -33,6 +33,14 @@ int main(int argc, char* argv[]) {
   auto socket = SDLNet_TCP_Open(&ip);
   SDL_assert(socket != NULL);
 
+  // allocate a socket set for listening the socket activity.
+  auto socketSet = SDLNet_AllocSocketSet(isServer ? 2 : 1);
+  SDL_assert(socketSet != NULL);
+
+  // add the initial socket into the socket set.
+  result = SDLNet_TCP_AddSocket(socketSet, socket);
+  SDL_assert(result != -1);
+
   // start the main loop.
   auto isRunning = true;
   SDL_Event event;
@@ -56,6 +64,8 @@ int main(int argc, char* argv[]) {
   }
 
   // release resources.
+  SDLNet_TCP_DelSocket(socketSet, socket);
+  SDLNet_FreeSocketSet(socketSet);
   SDLNet_TCP_Close(socket);
   SDL_DestroyRenderer(renderer);
   SDL_DestroyWindow(window);
