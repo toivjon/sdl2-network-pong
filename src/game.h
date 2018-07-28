@@ -2,6 +2,7 @@
 #define PONG_GAME_H
 
 struct SDL_Window;
+struct SDL_Renderer;
 
 namespace pong
 {
@@ -26,7 +27,8 @@ namespace pong
       // ======================================================================
       void run();
     private:
-      SDL_Window* mWindow;
+      SDL_Window*   mWindow;
+      SDL_Renderer* mRenderer;
   };
 }
 
