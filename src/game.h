@@ -1,6 +1,8 @@
 #ifndef PONG_GAME_H
 #define PONG_GAME_H
 
+#include "network_system.h"
+
 struct SDL_Window;
 struct SDL_Renderer;
 
@@ -29,6 +31,7 @@ namespace pong
     private:
       SDL_Window*   mWindow;
       SDL_Renderer* mRenderer;
+      NetworkSystem mNetworkSystem;
   };
 }
 

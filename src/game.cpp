@@ -6,7 +6,7 @@
 
 using namespace pong;
 
-Game::Game(int argc, char* argv[]) : mWindow(NULL)
+Game::Game(int argc, char* argv[]) : mWindow(NULL), mNetworkSystem(*this)
 {
   printf("%d %s", argc, argv[0]);
 
