@@ -4,7 +4,9 @@
 #include <cstdio>
 
 int main(int argc, char* argv[]) {
-  printf("%d %s", argc, argv[0]);
+  // parse command line arguments.
+  auto isServer = (argc == 1);
+  auto host = (isServer ? NULL : argv[1]);
 
   // initialize the core SDL framework.
   auto result = SDL_Init(SDL_INIT_VIDEO);
@@ -21,6 +23,15 @@ int main(int argc, char* argv[]) {
   // create the renderer for the main window.
   auto renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
   SDL_assert(renderer != NULL);
+
+  // resolve the requires host address for the initial socket.
+  IPaddress ip;
+  result = SDLNet_ResolveHost(&ip, host, 6666);
+  SDL_assert(result == 0);
+
+  // create the initial socket which is either client or server socket.
+  auto socket = SDLNet_TCP_Open(&ip);
+  SDL_assert(socket != NULL);
 
   // start the main loop.
   auto isRunning = true;
@@ -45,6 +56,7 @@ int main(int argc, char* argv[]) {
   }
 
   // release resources.
+  SDLNet_TCP_Close(socket);
   SDL_DestroyRenderer(renderer);
   SDL_DestroyWindow(window);
   SDLNet_Quit();
