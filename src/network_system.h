@@ -1,6 +1,8 @@
 #ifndef NETWORK_SYSTEM_H
 #define NETWORK_SYSTEM_H
 
+struct _SDLNet_SocketSet;
+
 namespace pong
 {
   class Game;
@@ -18,7 +20,8 @@ namespace pong
 
       ~NetworkSystem();
     private:
-      Game& mGame;
+      Game&              mGame;
+      _SDLNet_SocketSet* mSocketSet;
   };
 }
 
