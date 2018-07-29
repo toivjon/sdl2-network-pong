@@ -149,7 +149,8 @@ int main(int argc, char* argv[]) {
   auto nextUpdateMs = millis() + UPDATE_INTERVAL_MS;
   auto ballDirectionX = 1;
   auto ballDirectionY = 1;
-  auto ballVelocity = 2;
+  const auto INITIAL_BALL_VELOCITY = 2;
+  auto ballVelocity = INITIAL_BALL_VELOCITY;
 
   // start the main loop.
   auto isRunning = true;
@@ -308,20 +309,20 @@ int main(int argc, char* argv[]) {
       // TODO give a score to right player.
       // TODO reset ball & paddles to initial positions.
       // TODO randomize ball direction.
-      // TODO reset ball velocity.
+      ballVelocity = INITIAL_BALL_VELOCITY;
     } else if (SDL_HasIntersection(&ball, &rightGoal)) {
       // TODO give a score to left player.
       // TODO reset ball & paddles to initial positions.
       // TODO randomize ball direction.
-      // TODO reset ball velocity.
+      ballVelocity = INITIAL_BALL_VELOCITY;
     } else if (SDL_HasIntersection(&ball, &leftPaddle)) {
       ball.x = leftPaddle.x + leftPaddle.w;
       ballDirectionX *= -1;
-      // TODO apply a small increment to ball velocity.
+      ballVelocity += 1;
     } else if (SDL_HasIntersection(&ball, &rightPaddle)) {
       ball.x = rightPaddle.x - ball.w;
       ballDirectionX *= -1;
-      // TODO apply a small increment to ball velocity.
+      ballVelocity += 1;
     } else if (SDL_HasIntersection(&ball, &topWall)) {
       ball.y = topWall.y + topWall.h;
       ballDirectionY *= -1;
