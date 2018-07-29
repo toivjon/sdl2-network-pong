@@ -68,23 +68,23 @@ int main(int argc, char* argv[]) {
           isRunning = false;
           break;
       }
-
-      // clear the backbuffer with the black color.
-      SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0x00);
-      SDL_RenderClear(renderer);
-
-      // render all visible game objects on the backbuffer.
-      SDL_SetRenderDrawColor(renderer, 0xff, 0xff, 0xff, 0xff);
-      SDL_RenderFillRect(renderer, &topWall);
-      SDL_RenderFillRect(renderer, &bottomWall);
-      SDL_RenderFillRect(renderer, &leftPaddle);
-      SDL_RenderFillRect(renderer, &rightPaddle);
-      SDL_RenderFillRect(renderer, &ball);
-      SDL_RenderFillRects(renderer, &centerLine[0], 15);
-
-      // swap backbuffer to front and vice versa.
-      SDL_RenderPresent(renderer);
     }
+
+    // clear the backbuffer with the black color.
+    SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0x00);
+    SDL_RenderClear(renderer);
+
+    // render all visible game objects on the backbuffer.
+    SDL_SetRenderDrawColor(renderer, 0xff, 0xff, 0xff, 0xff);
+    SDL_RenderFillRect(renderer, &topWall);
+    SDL_RenderFillRect(renderer, &bottomWall);
+    SDL_RenderFillRect(renderer, &leftPaddle);
+    SDL_RenderFillRect(renderer, &rightPaddle);
+    SDL_RenderFillRect(renderer, &ball);
+    SDL_RenderFillRects(renderer, &centerLine[0], 15);
+
+    // swap backbuffer to front and vice versa.
+    SDL_RenderPresent(renderer);
   }
 
   // release resources.
