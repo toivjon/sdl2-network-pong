@@ -60,6 +60,10 @@ int main(int argc, char* argv[]) {
     centerLine[i] = { ((resolutionX / 2) - (boxWidth / 2)), y, boxWidth, boxWidth };
   }
 
+  // variables used within the ingame logic.
+  const auto paddleVelocity = (resolutionX / 100);
+  auto paddleDirection = 0;
+
   // start the main loop.
   auto isRunning = true;
   SDL_Event event;
@@ -69,34 +73,72 @@ int main(int argc, char* argv[]) {
         case SDL_QUIT:
           isRunning = false;
           break;
+        case SDL_KEYDOWN:
+          switch (event.key.keysym.sym) {
+            case SDLK_UP:
+              paddleDirection = -1;
+              break;
+            case SDLK_DOWN:
+              paddleDirection = 1;
+              break;
+          }
+          break;
+        case SDL_KEYUP:
+          switch (event.key.keysym.sym) {
+            case SDLK_UP:
+              if (paddleDirection == -1) {
+                paddleDirection = 0;
+              }
+              break;
+            case SDLK_DOWN:
+              if (paddleDirection == 1) {
+                paddleDirection = 0;
+              }
+              break;
+          }
+          break;
+      }
+    }
+
+    // move the controlled paddle when required.
+    if (paddleDirection != 0) {
+      auto movement = paddleVelocity * paddleDirection;
+      if (isServer) {
+        leftPaddle.y += movement;
+      } else {
+        rightPaddle.y += movement;
       }
     }
 
     // perform collision detection logics between game objects.
-    if (SDL_IntersectRect(&ball, &leftGoal, NULL)) {
+    if (SDL_HasIntersection(&ball, &leftGoal)) {
       // TODO give a score to right player.
       // TODO reset ball & paddles to initial positions.
       // TODO randomize ball direction.
       // TODO reset ball velocity.
-    } else if (SDL_IntersectRect(&ball, &rightGoal, NULL)) {
+    } else if (SDL_HasIntersection(&ball, &rightGoal)) {
       // TODO give a score to left player.
       // TODO reset ball & paddles to initial positions.
       // TODO randomize ball direction.
       // TODO reset ball velocity.
-    } else if (SDL_IntersectRect(&ball, &leftPaddle, NULL)) {
+    } else if (SDL_HasIntersection(&ball, &leftPaddle)) {
       // TODO inverse ball x- and y-direction.
       // TODO apply a small increment to ball velocity.
-    } else if (SDL_IntersectRect(&ball, &rightPaddle, NULL)) {
+    } else if (SDL_HasIntersection(&ball, &rightPaddle)) {
       // TODO inverse ball x- and y-direction.
       // TODO apply a small increment to ball velocity.
-    } else if (SDL_IntersectRect(&rightPaddle, &topWall, NULL)) {
-      // TODO ensure that the paddle stays below the top wall.
-    } else if (SDL_IntersectRect(&leftPaddle, &topWall, NULL)) {
-      // TODO ensure that the paddle stays below the top wall.
-    } else if (SDL_IntersectRect(&rightPaddle, &bottomWall, NULL)) {
-      // TODO ensure that the paddle stays above the bottom wall.
-    } else if (SDL_IntersectRect(&leftPaddle, &bottomWall, NULL)) {
-      // TODO ensure that the paddle stays above the bottom wall.
+    } else if (SDL_HasIntersection(&rightPaddle, &topWall)) {
+      // ensure that the paddle stays below the top wall.
+      rightPaddle.y = (topWall.y + topWall.h);
+    } else if (SDL_HasIntersection(&leftPaddle, &topWall)) {
+      // ensure that the paddle stays below the top wall.
+      leftPaddle.y = (topWall.y + topWall.h);
+    } else if (SDL_HasIntersection(&rightPaddle, &bottomWall)) {
+      // ensure that the paddle stays above the bottom wall.
+      rightPaddle.y = (bottomWall.y - paddleHeight);
+    } else if (SDL_HasIntersection(&leftPaddle, &bottomWall)) {
+      // ensure that the paddle stays above the bottom wall.
+      leftPaddle.y = (bottomWall.y - paddleHeight);
     }
 
     // clear the backbuffer with the black color.
