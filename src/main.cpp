@@ -43,6 +43,18 @@ int main(int argc, char* argv[]) {
   result = SDLNet_TCP_AddSocket(socketSet, socket);
   SDL_assert(result != -1);
 
+  // [server]: wait for the client to join the game.
+  TCPsocket clientSocket = NULL;
+  if (isServer) {
+    printf("Waiting for a client to join the game...\n");
+    result = SDLNet_CheckSockets(socketSet, 1000 * 60 * 5);
+    clientSocket = SDLNet_TCP_Accept(socket);
+    SDL_assert(clientSocket != NULL);
+    result = SDLNet_TCP_AddSocket(socketSet, clientSocket);
+    SDL_assert(result != -1);
+    printf("A client joined the server.\n");
+  }
+
   // create the set of game objects.
   auto boxWidth = (resolutionY / 30);
   auto edgeOffset = (resolutionY / 20);
@@ -98,6 +110,15 @@ int main(int argc, char* argv[]) {
           }
           break;
       }
+    }
+
+    // handle activity appearing at the network socket level.
+    auto socketSetState = SDLNet_CheckSockets(socketSet, 0);
+    if (socketSetState == -1) {
+      printf("SDLNet_CheckSocket: %s\n", SDLNet_GetError());
+      perror("SDLNet_CheckSockets");
+    } else if (socketSetState > 0) {
+      // TODO handle network activity.
     }
 
     // move the controlled paddle when required.
@@ -165,8 +186,10 @@ int main(int argc, char* argv[]) {
   }
 
   // release resources.
+  SDLNet_TCP_DelSocket(socketSet, clientSocket);
   SDLNet_TCP_DelSocket(socketSet, socket);
   SDLNet_FreeSocketSet(socketSet);
+  SDLNet_TCP_Close(clientSocket);
   SDLNet_TCP_Close(socket);
   SDL_DestroyRenderer(renderer);
   SDL_DestroyWindow(window);
