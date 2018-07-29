@@ -1,9 +1,32 @@
+#define __USE_MINGW_ANSI_STDIO 0
+
 #include <SDL/SDL.h>
 #include <SDL/SDL_net.h>
 
+#include <chrono>
 #include <cstdio>
+#include <sstream>
+#include <string>
+#include <vector>
 
 #define MAX_PACKAGE_SIZE 512
+
+using namespace std::chrono;
+
+inline int64_t millis() {
+  return duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+}
+
+inline std::vector<std::string> split(const std::string& s)
+{
+   std::vector<std::string> tokens;
+   std::istringstream tokenStream(s);
+   std::string token;
+   while (std::getline(tokenStream, token, ' ')) {
+      tokens.push_back(token);
+   }
+   return tokens;
+}
 
 int main(int argc, char* argv[]) {
   // parse command line arguments.
@@ -47,6 +70,7 @@ int main(int argc, char* argv[]) {
 
   // [server]: wait for the client to join the game.
   // after we receive a new connection, we can close the server socket.
+  auto clockOffset = 0ll;
   if (isServer) {
     printf("Waiting for a client to join the game...\n");
     result = SDLNet_CheckSockets(socketSet, 1000 * 60 * 5);
@@ -58,7 +82,35 @@ int main(int argc, char* argv[]) {
     SDL_assert(result != 0);
     SDLNet_TCP_Close(socket);
     socket = clientSocket;
+    char recvBuffer[MAX_PACKAGE_SIZE];
+    result = SDLNet_TCP_Recv(socket, recvBuffer, MAX_PACKAGE_SIZE);
+    SDL_assert(result > 0);
+    recvBuffer[result] = '\0';
+    std::string timeMessage;
+    timeMessage += recvBuffer;
+    timeMessage += " ";
+    timeMessage += std::to_string(millis());
+    result = SDLNet_TCP_Send(socket, timeMessage.c_str(), timeMessage.size());
+    SDL_assert(result == (int)timeMessage.size());
     printf("A client joined the server.\n");
+  } else {
+    printf("Performing the initial clock synchronization.\n");
+    const auto sendBuffer = std::to_string(millis());
+    result = SDLNet_TCP_Send(socket, sendBuffer.c_str(), sendBuffer.size());
+    SDL_assert(result == (int)sendBuffer.size());
+    char recvBuffer[MAX_PACKAGE_SIZE];
+    result = SDLNet_TCP_Recv(socket, recvBuffer, MAX_PACKAGE_SIZE);
+    SDL_assert(result > 0);
+    recvBuffer[result] = '\0';
+
+    // calculate round-trip, latency and delta.
+    auto tokens = split(recvBuffer);
+    SDL_assert(tokens.size() == 2);
+    auto roundTrip = millis() - stoll(tokens[0]);
+    auto latency = (roundTrip / 2);
+    auto delta = millis() - stoll(tokens[1]);
+    printf("round-trip=%ld latency=%ld, delta=%ld\n", (long)roundTrip, (long)latency, (long)delta);
+    clockOffset = delta + latency;
   }
 
   // create the set of game objects.
@@ -126,11 +178,15 @@ int main(int argc, char* argv[]) {
     } else if (socketSetState > 0 && SDLNet_SocketReady(socket)) {
       // get the data waiting in the socket buffer.
       char buffer[MAX_PACKAGE_SIZE];
-      if (SDLNet_TCP_Recv(socket, buffer, MAX_PACKAGE_SIZE) <= 0) {
+      auto receivedCount = SDLNet_TCP_Recv(socket, buffer, MAX_PACKAGE_SIZE);
+      if (receivedCount <= 0) {
         printf("The network connection was lost.\n");
         isRunning = false;
+      } else {
+        buffer[receivedCount] = '\0';
+        printf("received data: %s\n", buffer);
+        // TODO handle the received message.
       }
-      // TODO handle the received message.
     }
 
     // move the controlled paddle when required.
