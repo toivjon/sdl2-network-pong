@@ -5,6 +5,7 @@
 
 #include <chrono>
 #include <cstdio>
+#include <random>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -12,6 +13,18 @@
 #define MAX_PACKAGE_SIZE 512
 
 using namespace std::chrono;
+
+// =======================
+// = RANDOM DISTRIBUTION =
+// =======================
+
+static std::default_random_engine gRandomGenerator;
+static std::uniform_int_distribution<int> gRandomDistribution(0, 1);
+
+// A shortcut to generate a random direction (-1 or 1).
+inline int randomDirection() {
+  return (gRandomDistribution(gRandomGenerator) == 0 ? -1 : 1);
+}
 
 inline int64_t millis() {
   return duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
@@ -147,8 +160,8 @@ int main(int argc, char* argv[]) {
   auto sendBallStateRequired = false;
   const auto UPDATE_INTERVAL_MS = 10ll;
   auto nextUpdateMs = millis() + UPDATE_INTERVAL_MS;
-  auto ballDirectionX = 1;
-  auto ballDirectionY = 1;
+  auto ballDirectionX = randomDirection();
+  auto ballDirectionY = randomDirection();
   const auto INITIAL_BALL_VELOCITY = 2;
   const auto BALL_MAX_VELOCITY = 8;
   auto ballVelocity = INITIAL_BALL_VELOCITY;
@@ -323,7 +336,8 @@ int main(int argc, char* argv[]) {
       if (SDL_HasIntersection(&ball, &leftGoal)) {
         // TODO give a score to right player.
         // TODO reset ball & paddles to initial positions.
-        // TODO randomize ball direction.
+        ballDirectionX = randomDirection();
+        ballDirectionY = randomDirection();
         ballVelocity = INITIAL_BALL_VELOCITY;
       } else if (SDL_HasIntersection(&ball, &leftPaddle)) {
         ball.x = leftPaddle.x + leftPaddle.w;
@@ -335,7 +349,8 @@ int main(int argc, char* argv[]) {
       if (SDL_HasIntersection(&ball, &rightGoal)) {
         // TODO give a score to left player.
         // TODO reset ball & paddles to initial positions.
-        // TODO randomize ball direction.
+        ballDirectionX = randomDirection();
+        ballDirectionY = randomDirection();
         ballVelocity = INITIAL_BALL_VELOCITY;
       } else if (SDL_HasIntersection(&ball, &rightPaddle)) {
         ball.x = rightPaddle.x - ball.w;
