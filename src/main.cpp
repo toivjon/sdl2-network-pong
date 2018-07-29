@@ -28,6 +28,11 @@ inline std::vector<std::string> split(const std::string& s)
    return tokens;
 }
 
+struct RectState {
+  long long time;
+  SDL_Rect  value;
+};
+
 int main(int argc, char* argv[]) {
   // parse command line arguments.
   auto isServer = (argc == 1);
@@ -131,8 +136,17 @@ int main(int argc, char* argv[]) {
   }
 
   // variables used within the ingame logic.
+  auto now = millis() + clockOffset;
+  RectState leftPaddleStates[2] = {{now, leftPaddle}, {now, leftPaddle}};
+  RectState rightPaddleStates[2] = {{now, rightPaddle}, {now, rightPaddle}};
+  RectState ballStates[2] = {{now, ball}, {now, ball}};
   const auto paddleVelocity = (resolutionX / 100);
   auto paddleDirection = 0;
+  auto sendLeftPaddleStateRequired = false;
+  auto sendRightPaddleStateRequired = false;
+  auto sendBallStateRequired = false;
+  const auto UPDATE_INTERVAL_MS = 10ll;
+  auto nextUpdateMs = millis() + UPDATE_INTERVAL_MS;
 
   // start the main loop.
   auto isRunning = true;
@@ -170,6 +184,9 @@ int main(int argc, char* argv[]) {
       }
     }
 
+    // calculate the current iteration time.
+    const auto now = millis() + clockOffset;
+
     // handle activity appearing at the network socket level.
     auto socketSetState = SDLNet_CheckSockets(socketSet, 0);
     if (socketSetState == -1) {
@@ -183,19 +200,82 @@ int main(int argc, char* argv[]) {
         printf("The network connection was lost.\n");
         isRunning = false;
       } else {
-        buffer[receivedCount] = '\0';
-        printf("received data: %s\n", buffer);
         // TODO handle the received message.
+        buffer[receivedCount] = '\0';
+        auto tokens = split(buffer);
+        if (tokens.size() >= 3) {
+          if (tokens[0] == "rp") {
+            rightPaddleStates[0] = rightPaddleStates[1];
+            rightPaddleStates[1].time = stoll(tokens[1]);
+            rightPaddleStates[1].value.y = stod(tokens[2]);
+          } else if (tokens[0] == "lp") {
+            leftPaddleStates[0] = leftPaddleStates[1];
+            leftPaddleStates[1].time = stoll(tokens[1]);
+            leftPaddleStates[1].value.y = stod(tokens[2]);
+          } else if (tokens[0] == "b") {
+            ballStates[0] = ballStates[1];
+            ballStates[1].time = stoll(tokens[1]);
+            ballStates[1].value.x = stod(tokens[2]);
+            ballStates[1].value.y = stod(tokens[3]);
+          }
+        }
       }
     }
+
+    // send necessary update events to the remote connection.
+    if (now >= nextUpdateMs) {
+      if (sendLeftPaddleStateRequired) {
+        std::string buffer;
+        buffer += "lp";
+        buffer += " ";
+        buffer += std::to_string(leftPaddleStates[1].time);
+        buffer += " ";
+        buffer += std::to_string(leftPaddleStates[1].value.y);
+        result = SDLNet_TCP_Send(socket, buffer.c_str(), buffer.size());
+        SDL_assert(result == (int)buffer.size());
+        sendLeftPaddleStateRequired = false;
+      }
+      if (sendRightPaddleStateRequired) {
+        std::string buffer;
+        buffer += "rp";
+        buffer += " ";
+        buffer += std::to_string(rightPaddleStates[1].time);
+        buffer += " ";
+        buffer += std::to_string(rightPaddleStates[1].value.y);
+        result = SDLNet_TCP_Send(socket, buffer.c_str(), buffer.size());
+        SDL_assert(result == (int)buffer.size());
+        sendRightPaddleStateRequired = false;
+      }
+      if (sendBallStateRequired) {
+        std::string buffer;
+        buffer += "b";
+        buffer += " ";
+        buffer += std::to_string(ballStates[1].time);
+        buffer += " ";
+        buffer += std::to_string(ballStates[1].value.y);
+        buffer += " ";
+        buffer += std::to_string(ballStates[1].value.x);
+        result = SDLNet_TCP_Send(socket, buffer.c_str(), buffer.size());
+        SDL_assert(result == (int)buffer.size());
+        sendBallStateRequired = false;
+      }
+      nextUpdateMs = now + UPDATE_INTERVAL_MS;
+    }
+
+    // re-apply states for the dynamic objects.
+    leftPaddle = leftPaddleStates[1].value;
+    ball = ballStates[1].value;
+    rightPaddle = rightPaddleStates[1].value;
 
     // move the controlled paddle when required.
     if (paddleDirection != 0) {
       auto movement = paddleVelocity * paddleDirection;
       if (isServer) {
         leftPaddle.y += movement;
+        sendLeftPaddleStateRequired = true;
       } else {
         rightPaddle.y += movement;
+        sendRightPaddleStateRequired = true;
       }
     }
 
@@ -235,6 +315,16 @@ int main(int argc, char* argv[]) {
     } else if (SDL_HasIntersection(&ball, &bottomWall)) {
       // TODO inverse ball y-direction.
     }
+
+    // swap old states as a historic states.
+    leftPaddleStates[0] = leftPaddleStates[1];
+    rightPaddleStates[0] = rightPaddleStates[1];
+    ballStates[0] = ballStates[1];
+
+    // store current states as old states.
+    leftPaddleStates[1] = {now, leftPaddle};
+    rightPaddleStates[1] = {now, rightPaddle};
+    ballStates[1] = {now, ball};
 
     // clear the backbuffer with the black color.
     SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0x00);
