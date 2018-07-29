@@ -147,6 +147,9 @@ int main(int argc, char* argv[]) {
   auto sendBallStateRequired = false;
   const auto UPDATE_INTERVAL_MS = 10ll;
   auto nextUpdateMs = millis() + UPDATE_INTERVAL_MS;
+  auto ballDirectionX = 1;
+  auto ballDirectionY = 1;
+  auto ballVelocity = 2;
 
   // start the main loop.
   auto isRunning = true;
@@ -252,9 +255,9 @@ int main(int argc, char* argv[]) {
         buffer += " ";
         buffer += std::to_string(ballStates[1].time);
         buffer += " ";
-        buffer += std::to_string(ballStates[1].value.y);
-        buffer += " ";
         buffer += std::to_string(ballStates[1].value.x);
+        buffer += " ";
+        buffer += std::to_string(ballStates[1].value.y);
         result = SDLNet_TCP_Send(socket, buffer.c_str(), buffer.size());
         SDL_assert(result == (int)buffer.size());
         sendBallStateRequired = false;
@@ -277,6 +280,13 @@ int main(int argc, char* argv[]) {
         rightPaddle.y += movement;
         sendRightPaddleStateRequired = true;
       }
+    }
+
+    // move the ball.
+    if (isServer) {
+      ball.x += ballDirectionX * ballVelocity;
+      ball.y += ballDirectionY * ballVelocity;
+      sendBallStateRequired = true;
     }
 
     // check that the left paddle stays between the top and bottom walls.
@@ -305,15 +315,19 @@ int main(int argc, char* argv[]) {
       // TODO randomize ball direction.
       // TODO reset ball velocity.
     } else if (SDL_HasIntersection(&ball, &leftPaddle)) {
-      // TODO inverse ball x- and y-direction.
+      ball.x = leftPaddle.x + leftPaddle.w;
+      ballDirectionX *= -1;
       // TODO apply a small increment to ball velocity.
     } else if (SDL_HasIntersection(&ball, &rightPaddle)) {
-      // TODO inverse ball x- and y-direction.
+      ball.x = rightPaddle.x - ball.w;
+      ballDirectionX *= -1;
       // TODO apply a small increment to ball velocity.
     } else if (SDL_HasIntersection(&ball, &topWall)) {
-      // TODO inverse ball y-direction.
+      ball.y = topWall.y + topWall.h;
+      ballDirectionY *= -1;
     } else if (SDL_HasIntersection(&ball, &bottomWall)) {
-      // TODO inverse ball y-direction.
+      ball.y = bottomWall.y - ball.h;
+      ballDirectionY *= -1;
     }
 
     // swap old states as a historic states.
