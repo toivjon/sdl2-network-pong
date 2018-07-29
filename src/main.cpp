@@ -52,6 +52,8 @@ int main(int argc, char* argv[]) {
   SDL_Rect leftPaddle = { edgeOffset, ((resolutionY / 2) - (paddleHeight / 2)), boxWidth, paddleHeight};
   SDL_Rect rightPaddle = { (resolutionX - edgeOffset - boxWidth), ((resolutionY / 2) - (paddleHeight / 2)), boxWidth, paddleHeight};
   SDL_Rect ball = { ((resolutionX / 2) - (boxWidth / 2)), ((resolutionY / 2) - (boxWidth / 2)), boxWidth, boxWidth };
+  SDL_Rect leftGoal = { -1000, 0, (1000 - boxWidth), resolutionY };
+  SDL_Rect rightGoal = { resolutionX + boxWidth, 0, 1000, resolutionY };
   SDL_Rect centerLine[15];
   for (auto i = 0; i < 15; i++) {
     auto y = static_cast<int>(boxWidth + (i * 1.93f * boxWidth));
@@ -68,6 +70,33 @@ int main(int argc, char* argv[]) {
           isRunning = false;
           break;
       }
+    }
+
+    // perform collision detection logics between game objects.
+    if (SDL_IntersectRect(&ball, &leftGoal, NULL)) {
+      // TODO give a score to right player.
+      // TODO reset ball & paddles to initial positions.
+      // TODO randomize ball direction.
+      // TODO reset ball velocity.
+    } else if (SDL_IntersectRect(&ball, &rightGoal, NULL)) {
+      // TODO give a score to left player.
+      // TODO reset ball & paddles to initial positions.
+      // TODO randomize ball direction.
+      // TODO reset ball velocity.
+    } else if (SDL_IntersectRect(&ball, &leftPaddle, NULL)) {
+      // TODO inverse ball x- and y-direction.
+      // TODO apply a small increment to ball velocity.
+    } else if (SDL_IntersectRect(&ball, &rightPaddle, NULL)) {
+      // TODO inverse ball x- and y-direction.
+      // TODO apply a small increment to ball velocity.
+    } else if (SDL_IntersectRect(&rightPaddle, &topWall, NULL)) {
+      // TODO ensure that the paddle stays below the top wall.
+    } else if (SDL_IntersectRect(&leftPaddle, &topWall, NULL)) {
+      // TODO ensure that the paddle stays below the top wall.
+    } else if (SDL_IntersectRect(&rightPaddle, &bottomWall, NULL)) {
+      // TODO ensure that the paddle stays above the bottom wall.
+    } else if (SDL_IntersectRect(&leftPaddle, &bottomWall, NULL)) {
+      // TODO ensure that the paddle stays above the bottom wall.
     }
 
     // clear the backbuffer with the black color.
