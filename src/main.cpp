@@ -18,12 +18,11 @@ using namespace std::chrono;
 // = RANDOM DISTRIBUTION =
 // =======================
 
-static std::default_random_engine gRandomGenerator;
-static std::uniform_int_distribution<int> gRandomDistribution(0, 1);
-
 // A shortcut to generate a random direction (-1 or 1).
 inline int randomDirection() {
-  return (gRandomDistribution(gRandomGenerator) == 0 ? -1 : 1);
+  static std::default_random_engine generator;
+  static std::uniform_int_distribution<int> distribution;
+  return (distribution(generator) == 0 ? -1 : 1);
 }
 
 inline int64_t millis() {
