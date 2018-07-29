@@ -17,7 +17,9 @@ int main(int argc, char* argv[]) {
   SDL_assert(result == 0);
 
   // create the main window for the application.
-  auto window = SDL_CreateWindow("Pong", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 800, 600, SDL_WINDOW_SHOWN);
+  int resolutionX = 800;
+  int resolutionY = 600;
+  auto window = SDL_CreateWindow("Pong", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, resolutionX, resolutionY, SDL_WINDOW_SHOWN);
   SDL_assert(window != NULL);
 
   // create the renderer for the main window.
@@ -41,6 +43,21 @@ int main(int argc, char* argv[]) {
   result = SDLNet_TCP_AddSocket(socketSet, socket);
   SDL_assert(result != -1);
 
+  // create the set of game objects.
+  auto boxWidth = (resolutionY / 30);
+  auto edgeOffset = (resolutionY / 20);
+  auto paddleHeight = (resolutionY / 6);
+  SDL_Rect topWall = { 0, 0, resolutionX, boxWidth};
+  SDL_Rect bottomWall = { 0, (resolutionY - boxWidth), resolutionX, boxWidth };
+  SDL_Rect leftPaddle = { edgeOffset, ((resolutionY / 2) - (paddleHeight / 2)), boxWidth, paddleHeight};
+  SDL_Rect rightPaddle = { (resolutionX - edgeOffset - boxWidth), ((resolutionY / 2) - (paddleHeight / 2)), boxWidth, paddleHeight};
+  SDL_Rect ball = { ((resolutionX / 2) - (boxWidth / 2)), ((resolutionY / 2) - (boxWidth / 2)), boxWidth, boxWidth };
+  SDL_Rect centerLine[15];
+  for (auto i = 0; i < 15; i++) {
+    auto y = static_cast<int>(boxWidth + (i * 1.93f * boxWidth));
+    centerLine[i] = { ((resolutionX / 2) - (boxWidth / 2)), y, boxWidth, boxWidth };
+  }
+
   // start the main loop.
   auto isRunning = true;
   SDL_Event event;
@@ -56,7 +73,14 @@ int main(int argc, char* argv[]) {
       SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0x00);
       SDL_RenderClear(renderer);
 
-      // TODO draw stuff...
+      // render all visible game objects on the backbuffer.
+      SDL_SetRenderDrawColor(renderer, 0xff, 0xff, 0xff, 0xff);
+      SDL_RenderFillRect(renderer, &topWall);
+      SDL_RenderFillRect(renderer, &bottomWall);
+      SDL_RenderFillRect(renderer, &leftPaddle);
+      SDL_RenderFillRect(renderer, &rightPaddle);
+      SDL_RenderFillRect(renderer, &ball);
+      SDL_RenderFillRects(renderer, &centerLine[0], 15);
 
       // swap backbuffer to front and vice versa.
       SDL_RenderPresent(renderer);
