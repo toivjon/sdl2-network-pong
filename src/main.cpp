@@ -150,6 +150,7 @@ int main(int argc, char* argv[]) {
   auto ballDirectionX = 1;
   auto ballDirectionY = 1;
   const auto INITIAL_BALL_VELOCITY = 2;
+  const auto BALL_MAX_VELOCITY = 8;
   auto ballVelocity = INITIAL_BALL_VELOCITY;
 
   // start the main loop.
@@ -304,31 +305,44 @@ int main(int argc, char* argv[]) {
       rightPaddle.y = (bottomWall.y - paddleHeight);
     }
 
-    // perform collision detection logics for the ball.
-    if (SDL_HasIntersection(&ball, &leftGoal)) {
-      // TODO give a score to right player.
-      // TODO reset ball & paddles to initial positions.
-      // TODO randomize ball direction.
-      ballVelocity = INITIAL_BALL_VELOCITY;
-    } else if (SDL_HasIntersection(&ball, &rightGoal)) {
-      // TODO give a score to left player.
-      // TODO reset ball & paddles to initial positions.
-      // TODO randomize ball direction.
-      ballVelocity = INITIAL_BALL_VELOCITY;
-    } else if (SDL_HasIntersection(&ball, &leftPaddle)) {
-      ball.x = leftPaddle.x + leftPaddle.w;
-      ballDirectionX *= -1;
-      ballVelocity += 1;
-    } else if (SDL_HasIntersection(&ball, &rightPaddle)) {
-      ball.x = rightPaddle.x - ball.w;
-      ballDirectionX *= -1;
-      ballVelocity += 1;
-    } else if (SDL_HasIntersection(&ball, &topWall)) {
-      ball.y = topWall.y + topWall.h;
-      ballDirectionY *= -1;
-    } else if (SDL_HasIntersection(&ball, &bottomWall)) {
-      ball.y = bottomWall.y - ball.h;
-      ballDirectionY *= -1;
+    // check whether the ball hits walls.
+    if (ballDirectionY > 0) {
+      if (SDL_HasIntersection(&ball, &bottomWall)) {
+        ball.y = bottomWall.y - ball.h;
+        ballDirectionY *= -1;
+      }
+    } else {
+      if (SDL_HasIntersection(&ball, &topWall)) {
+        ball.y = topWall.y + topWall.h;
+        ballDirectionY *= -1;
+      }
+    }
+
+    // check whether the ball hits goals or paddles.
+    if (ballDirectionX < 0) {
+      if (SDL_HasIntersection(&ball, &leftGoal)) {
+        // TODO give a score to right player.
+        // TODO reset ball & paddles to initial positions.
+        // TODO randomize ball direction.
+        ballVelocity = INITIAL_BALL_VELOCITY;
+      } else if (SDL_HasIntersection(&ball, &leftPaddle)) {
+        ball.x = leftPaddle.x + leftPaddle.w;
+        ballDirectionX *= -1;
+        ballVelocity += 1;
+        ballVelocity = std::min(BALL_MAX_VELOCITY, ballVelocity);
+      }
+    } else {
+      if (SDL_HasIntersection(&ball, &rightGoal)) {
+        // TODO give a score to left player.
+        // TODO reset ball & paddles to initial positions.
+        // TODO randomize ball direction.
+        ballVelocity = INITIAL_BALL_VELOCITY;
+      } else if (SDL_HasIntersection(&ball, &rightPaddle)) {
+        ball.x = rightPaddle.x - ball.w;
+        ballDirectionX *= -1;
+        ballVelocity += 1;
+        ballVelocity = std::min(BALL_MAX_VELOCITY, ballVelocity);
+      }
     }
 
     // swap old states as a historic states.
