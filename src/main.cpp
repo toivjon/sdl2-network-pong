@@ -3,6 +3,8 @@
 
 #include <cstdio>
 
+#define MAX_PACKAGE_SIZE 512
+
 int main(int argc, char* argv[]) {
   // parse command line arguments.
   auto isServer = (argc == 1);
@@ -121,8 +123,14 @@ int main(int argc, char* argv[]) {
     if (socketSetState == -1) {
       printf("SDLNet_CheckSocket: %s\n", SDLNet_GetError());
       perror("SDLNet_CheckSockets");
-    } else if (socketSetState > 0) {
-      // TODO handle network activity.
+    } else if (socketSetState > 0 && SDLNet_SocketReady(socket)) {
+      // get the data waiting in the socket buffer.
+      char buffer[MAX_PACKAGE_SIZE];
+      if (SDLNet_TCP_Recv(socket, buffer, MAX_PACKAGE_SIZE) <= 0) {
+        printf("The network connection was lost.\n");
+        isRunning = false;
+      }
+      // TODO handle the received message.
     }
 
     // move the controlled paddle when required.
