@@ -110,7 +110,21 @@ int main(int argc, char* argv[]) {
       }
     }
 
-    // perform collision detection logics between game objects.
+    // check that the left paddle stays between the top and bottom walls.
+    if (SDL_HasIntersection(&leftPaddle, &topWall)) {
+      leftPaddle.y = (topWall.y + topWall.h);
+    } else if (SDL_HasIntersection(&leftPaddle, &bottomWall)) {
+      leftPaddle.y = (bottomWall.y - paddleHeight);
+    }
+
+    // check that the right paddle stays between the top and bottom walls.
+    if (SDL_HasIntersection(&rightPaddle, &topWall)) {
+      rightPaddle.y = (topWall.y + topWall.h);
+    } else if (SDL_HasIntersection(&rightPaddle, &bottomWall)) {
+      rightPaddle.y = (bottomWall.y - paddleHeight);
+    }
+
+    // perform collision detection logics for the ball.
     if (SDL_HasIntersection(&ball, &leftGoal)) {
       // TODO give a score to right player.
       // TODO reset ball & paddles to initial positions.
@@ -127,18 +141,10 @@ int main(int argc, char* argv[]) {
     } else if (SDL_HasIntersection(&ball, &rightPaddle)) {
       // TODO inverse ball x- and y-direction.
       // TODO apply a small increment to ball velocity.
-    } else if (SDL_HasIntersection(&rightPaddle, &topWall)) {
-      // ensure that the paddle stays below the top wall.
-      rightPaddle.y = (topWall.y + topWall.h);
-    } else if (SDL_HasIntersection(&leftPaddle, &topWall)) {
-      // ensure that the paddle stays below the top wall.
-      leftPaddle.y = (topWall.y + topWall.h);
-    } else if (SDL_HasIntersection(&rightPaddle, &bottomWall)) {
-      // ensure that the paddle stays above the bottom wall.
-      rightPaddle.y = (bottomWall.y - paddleHeight);
-    } else if (SDL_HasIntersection(&leftPaddle, &bottomWall)) {
-      // ensure that the paddle stays above the bottom wall.
-      leftPaddle.y = (bottomWall.y - paddleHeight);
+    } else if (SDL_HasIntersection(&ball, &topWall)) {
+      // TODO inverse ball y-direction.
+    } else if (SDL_HasIntersection(&ball, &bottomWall)) {
+      // TODO inverse ball y-direction.
     }
 
     // clear the backbuffer with the black color.
