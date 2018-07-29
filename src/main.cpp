@@ -44,14 +44,18 @@ int main(int argc, char* argv[]) {
   SDL_assert(result != -1);
 
   // [server]: wait for the client to join the game.
-  TCPsocket clientSocket = NULL;
+  // after we receive a new connection, we can close the server socket.
   if (isServer) {
     printf("Waiting for a client to join the game...\n");
     result = SDLNet_CheckSockets(socketSet, 1000 * 60 * 5);
-    clientSocket = SDLNet_TCP_Accept(socket);
+    auto clientSocket = SDLNet_TCP_Accept(socket);
     SDL_assert(clientSocket != NULL);
     result = SDLNet_TCP_AddSocket(socketSet, clientSocket);
     SDL_assert(result != -1);
+    result = SDLNet_TCP_DelSocket(socketSet, socket);
+    SDL_assert(result != 0);
+    SDLNet_TCP_Close(socket);
+    socket = clientSocket;
     printf("A client joined the server.\n");
   }
 
@@ -186,10 +190,8 @@ int main(int argc, char* argv[]) {
   }
 
   // release resources.
-  SDLNet_TCP_DelSocket(socketSet, clientSocket);
   SDLNet_TCP_DelSocket(socketSet, socket);
   SDLNet_FreeSocketSet(socketSet);
-  SDLNet_TCP_Close(clientSocket);
   SDLNet_TCP_Close(socket);
   SDL_DestroyRenderer(renderer);
   SDL_DestroyWindow(window);
