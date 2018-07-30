@@ -53,11 +53,6 @@ inline std::vector<std::string> split(const std::string& s)
    return tokens;
 }
 
-struct RectState {
-  long long time;
-  SDL_Rect  value;
-};
-
 int main(int argc, char* argv[]) {
   // parse command line arguments.
   auto isServer = (argc == 1);
@@ -160,9 +155,6 @@ int main(int argc, char* argv[]) {
 
   // variables used within the ingame logic.
   auto now = millis() + clockOffset;
-  RectState leftPaddleStates[2] = {{now, leftPaddle}, {now, leftPaddle}};
-  RectState rightPaddleStates[2] = {{now, rightPaddle}, {now, rightPaddle}};
-  RectState ballStates[2] = {{now, ball}, {now, ball}};
   const auto paddleVelocity = (RESOLUTION_WIDTH / 100);
   auto paddleDirection = 0;
   auto sendLeftPaddleStateRequired = false;
@@ -216,9 +208,6 @@ int main(int argc, char* argv[]) {
       }
     }
 
-    // calculate the current iteration time.
-    const auto now = millis() + clockOffset;
-
     // handle activity appearing at the network socket level.
     auto socketSetState = SDLNet_CheckSockets(socketSet, 0);
     if (socketSetState == -1) {
@@ -240,40 +229,18 @@ int main(int argc, char* argv[]) {
           if (tokens[0] == "gl") {
             leftPlayerScore++;
             printf("Left player score: %d\n", leftPlayerScore);
-
-            // TODO cleanup this to follow DRY.
-            leftPaddleStates[0] = { now, {edgeOffset, ((RESOLUTION_HEIGHT / 2) - (paddleHeight / 2)), boxWidth, paddleHeight} };
-            leftPaddleStates[1] = leftPaddleStates[0];
-            rightPaddleStates[0] = { now, {(RESOLUTION_WIDTH - edgeOffset - boxWidth), ((RESOLUTION_HEIGHT / 2) - (paddleHeight / 2)), boxWidth, paddleHeight} };
-            rightPaddleStates[1] = rightPaddleStates[0];
-            ballStates[0] = { now, {((RESOLUTION_WIDTH / 2) - (boxWidth / 2)), ((RESOLUTION_HEIGHT / 2) - (boxWidth / 2)), boxWidth, boxWidth} };
-            ballStates[1] = ballStates[0];
           } else if (tokens[0] == "gr") {
             rightPlayerScore++;
             printf("Right player score: %d\n", rightPlayerScore);
-
-            // TODO cleanup this to follow DRY.
-            leftPaddleStates[0] = { now, {edgeOffset, ((RESOLUTION_HEIGHT / 2) - (paddleHeight / 2)), boxWidth, paddleHeight} };
-            leftPaddleStates[1] = leftPaddleStates[0];
-            rightPaddleStates[0] = { now, {(RESOLUTION_WIDTH - edgeOffset - boxWidth), ((RESOLUTION_HEIGHT / 2) - (paddleHeight / 2)), boxWidth, paddleHeight} };
-            rightPaddleStates[1] = rightPaddleStates[0];
-            ballStates[0] = { now, {((RESOLUTION_WIDTH / 2) - (boxWidth / 2)), ((RESOLUTION_HEIGHT / 2) - (boxWidth / 2)), boxWidth, boxWidth} };
-            ballStates[1] = ballStates[0];
           }
         } else if (tokens.size() >= 3) {
           if (tokens[0] == "rp") {
-            rightPaddleStates[0] = rightPaddleStates[1];
-            rightPaddleStates[1].time = stoll(tokens[1]);
-            rightPaddleStates[1].value.y = stod(tokens[2]);
+            rightPaddle.y = stod(tokens[1]);
           } else if (tokens[0] == "lp") {
-            leftPaddleStates[0] = leftPaddleStates[1];
-            leftPaddleStates[1].time = stoll(tokens[1]);
-            leftPaddleStates[1].value.y = stod(tokens[2]);
+            leftPaddle.y = stod(tokens[1]);
           } else if (tokens[0] == "b") {
-            ballStates[0] = ballStates[1];
-            ballStates[1].time = stoll(tokens[1]);
-            ballStates[1].value.x = stod(tokens[2]);
-            ballStates[1].value.y = stod(tokens[3]);
+            ball.x = stod(tokens[1]);
+            ball.y = stod(tokens[2]);
           }
         }
       }
@@ -285,9 +252,7 @@ int main(int argc, char* argv[]) {
         std::string buffer;
         buffer += "lp";
         buffer += " ";
-        buffer += std::to_string(leftPaddleStates[1].time);
-        buffer += " ";
-        buffer += std::to_string(leftPaddleStates[1].value.y);
+        buffer += std::to_string(leftPaddle.y);
         result = SDLNet_TCP_Send(socket, buffer.c_str(), buffer.size());
         SDL_assert(result == (int)buffer.size());
         sendLeftPaddleStateRequired = false;
@@ -296,9 +261,7 @@ int main(int argc, char* argv[]) {
         std::string buffer;
         buffer += "rp";
         buffer += " ";
-        buffer += std::to_string(rightPaddleStates[1].time);
-        buffer += " ";
-        buffer += std::to_string(rightPaddleStates[1].value.y);
+        buffer += std::to_string(rightPaddle.y);
         result = SDLNet_TCP_Send(socket, buffer.c_str(), buffer.size());
         SDL_assert(result == (int)buffer.size());
         sendRightPaddleStateRequired = false;
@@ -307,11 +270,9 @@ int main(int argc, char* argv[]) {
         std::string buffer;
         buffer += "b";
         buffer += " ";
-        buffer += std::to_string(ballStates[1].time);
+        buffer += std::to_string(ball.x);
         buffer += " ";
-        buffer += std::to_string(ballStates[1].value.x);
-        buffer += " ";
-        buffer += std::to_string(ballStates[1].value.y);
+        buffer += std::to_string(ball.y);
         result = SDLNet_TCP_Send(socket, buffer.c_str(), buffer.size());
         SDL_assert(result == (int)buffer.size());
         sendBallStateRequired = false;
@@ -336,13 +297,8 @@ int main(int argc, char* argv[]) {
       }
     }
 
-    // re-apply states for the dynamic objects.
-    leftPaddle = leftPaddleStates[1].value;
-    ball = ballStates[1].value;
-    rightPaddle = rightPaddleStates[1].value;
-
     // move the controlled paddle when required.
-    if (paddleDirection != 0) {
+    if (paddleDirection != DIRECTION_NONE) {
       auto movement = paddleVelocity * paddleDirection;
       if (isServer) {
         leftPaddle.y += movement;
@@ -392,18 +348,6 @@ int main(int argc, char* argv[]) {
       if (isServer && SDL_HasIntersection(&ball, &leftGoal)) {
         rightPlayerScore++;
         printf("Right player score: %d\n", rightPlayerScore);
-
-        // TODO cleanup this to follow DRY.
-        leftPaddleStates[0] = { now, {edgeOffset, ((RESOLUTION_HEIGHT / 2) - (paddleHeight / 2)), boxWidth, paddleHeight} };
-        leftPaddleStates[1] = leftPaddleStates[0];
-        rightPaddleStates[0] = { now, {(RESOLUTION_WIDTH - edgeOffset - boxWidth), ((RESOLUTION_HEIGHT / 2) - (paddleHeight / 2)), boxWidth, paddleHeight} };
-        rightPaddleStates[1] = rightPaddleStates[0];
-        ballStates[0] = { now, {((RESOLUTION_WIDTH / 2) - (boxWidth / 2)), ((RESOLUTION_HEIGHT / 2) - (boxWidth / 2)), boxWidth, boxWidth} };
-        ballStates[1] = ballStates[0];
-        leftPaddle = leftPaddleStates[0].value;
-        rightPaddle = rightPaddleStates[0].value;
-        ball = ballStates[0].value;
-
         sendGoalToRightPlayer = true;
         ballDirectionX = randomDirection();
         ballDirectionY = randomDirection();
@@ -418,18 +362,6 @@ int main(int argc, char* argv[]) {
       if (isServer && SDL_HasIntersection(&ball, &rightGoal)) {
         leftPlayerScore++;
         printf("Left player score: %d\n", leftPlayerScore);
-
-        // TODO cleanup this to follow DRY.
-        leftPaddleStates[0] = { now, {edgeOffset, ((RESOLUTION_HEIGHT / 2) - (paddleHeight / 2)), boxWidth, paddleHeight} };
-        leftPaddleStates[1] = leftPaddleStates[0];
-        rightPaddleStates[0] = { now, {(RESOLUTION_WIDTH - edgeOffset - boxWidth), ((RESOLUTION_HEIGHT / 2) - (paddleHeight / 2)), boxWidth, paddleHeight} };
-        rightPaddleStates[1] = rightPaddleStates[0];
-        ballStates[0] = { now, {((RESOLUTION_WIDTH / 2) - (boxWidth / 2)), ((RESOLUTION_HEIGHT / 2) - (boxWidth / 2)), boxWidth, boxWidth} };
-        ballStates[1] = ballStates[0];
-        leftPaddle = leftPaddleStates[0].value;
-        rightPaddle = rightPaddleStates[0].value;
-        ball = ballStates[0].value;
-
         sendGoalToLeftPlayer = true;
         ballDirectionX = randomDirection();
         ballDirectionY = randomDirection();
@@ -441,16 +373,6 @@ int main(int argc, char* argv[]) {
         ballVelocity = std::min(BALL_MAX_VELOCITY, ballVelocity);
       }
     }
-
-    // swap old states as a historic states.
-    leftPaddleStates[0] = leftPaddleStates[1];
-    rightPaddleStates[0] = rightPaddleStates[1];
-    ballStates[0] = ballStates[1];
-
-    // store current states as old states.
-    leftPaddleStates[1] = {now, leftPaddle};
-    rightPaddleStates[1] = {now, rightPaddle};
-    ballStates[1] = {now, ball};
 
     // clear the backbuffer with the black color.
     SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0x00);
