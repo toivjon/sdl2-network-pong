@@ -157,6 +157,8 @@ int main(int argc, char* argv[]) {
   auto sendLeftPaddleStateRequired = false;
   auto sendRightPaddleStateRequired = false;
   auto sendBallStateRequired = false;
+  auto sendGoalToLeftPlayer = false;
+  auto sendGoalToRightPlayer = false;
   const auto UPDATE_INTERVAL_MS = 10ll;
   auto nextUpdateMs = millis() + UPDATE_INTERVAL_MS;
   auto ballDirectionX = randomDirection();
@@ -164,6 +166,8 @@ int main(int argc, char* argv[]) {
   const auto INITIAL_BALL_VELOCITY = 2;
   const auto BALL_MAX_VELOCITY = 8;
   auto ballVelocity = INITIAL_BALL_VELOCITY;
+  auto leftPlayerScore = 0;
+  auto rightPlayerScore = 0;
 
   // start the main loop.
   auto isRunning = true;
@@ -219,8 +223,33 @@ int main(int argc, char* argv[]) {
       } else {
         // TODO handle the received message.
         buffer[receivedCount] = '\0';
+        printf("recv: %s [%d]\n", buffer, receivedCount);
         auto tokens = split(buffer);
-        if (tokens.size() >= 3) {
+        if (tokens.size() == 1) {
+          if (tokens[0] == "gl") {
+            leftPlayerScore++;
+            printf("Left player score: %d\n", leftPlayerScore);
+
+            // TODO cleanup this to follow DRY.
+            leftPaddleStates[0] = { now, {edgeOffset, ((resolutionY / 2) - (paddleHeight / 2)), boxWidth, paddleHeight} };
+            leftPaddleStates[1] = leftPaddleStates[0];
+            rightPaddleStates[0] = { now, {(resolutionX - edgeOffset - boxWidth), ((resolutionY / 2) - (paddleHeight / 2)), boxWidth, paddleHeight} };
+            rightPaddleStates[1] = rightPaddleStates[0];
+            ballStates[0] = { now, {((resolutionX / 2) - (boxWidth / 2)), ((resolutionY / 2) - (boxWidth / 2)), boxWidth, boxWidth} };
+            ballStates[1] = ballStates[0];
+          } else if (tokens[0] == "gr") {
+            rightPlayerScore++;
+            printf("Right player score: %d\n", rightPlayerScore);
+
+            // TODO cleanup this to follow DRY.
+            leftPaddleStates[0] = { now, {edgeOffset, ((resolutionY / 2) - (paddleHeight / 2)), boxWidth, paddleHeight} };
+            leftPaddleStates[1] = leftPaddleStates[0];
+            rightPaddleStates[0] = { now, {(resolutionX - edgeOffset - boxWidth), ((resolutionY / 2) - (paddleHeight / 2)), boxWidth, paddleHeight} };
+            rightPaddleStates[1] = rightPaddleStates[0];
+            ballStates[0] = { now, {((resolutionX / 2) - (boxWidth / 2)), ((resolutionY / 2) - (boxWidth / 2)), boxWidth, boxWidth} };
+            ballStates[1] = ballStates[0];
+          }
+        } else if (tokens.size() >= 3) {
           if (tokens[0] == "rp") {
             rightPaddleStates[0] = rightPaddleStates[1];
             rightPaddleStates[1].time = stoll(tokens[1]);
@@ -279,6 +308,23 @@ int main(int argc, char* argv[]) {
       nextUpdateMs = now + UPDATE_INTERVAL_MS;
     }
 
+    // check whether we need to indicate client about a goal.
+    if (isServer) {
+      if (sendGoalToLeftPlayer) {
+        std::string buffer("gl");
+        result = SDLNet_TCP_Send(socket, buffer.c_str(), buffer.size());
+        SDL_assert(result == (int)buffer.size());
+        sendGoalToLeftPlayer = false;
+        printf("sent goal message to client!");
+      } else if (sendGoalToRightPlayer) {
+        std::string buffer("gr");
+        result = SDLNet_TCP_Send(socket, buffer.c_str(), buffer.size());
+        SDL_assert(result == (int)buffer.size());
+        sendGoalToRightPlayer = false;
+        printf("sent goal message to client!");
+      }
+    }
+
     // re-apply states for the dynamic objects.
     leftPaddle = leftPaddleStates[1].value;
     ball = ballStates[1].value;
@@ -332,9 +378,22 @@ int main(int argc, char* argv[]) {
 
     // check whether the ball hits goals or paddles.
     if (ballDirectionX < 0) {
-      if (SDL_HasIntersection(&ball, &leftGoal)) {
-        // TODO give a score to right player.
-        // TODO reset ball & paddles to initial positions.
+      if (isServer && SDL_HasIntersection(&ball, &leftGoal)) {
+        rightPlayerScore++;
+        printf("Right player score: %d\n", rightPlayerScore);
+
+        // TODO cleanup this to follow DRY.
+        leftPaddleStates[0] = { now, {edgeOffset, ((resolutionY / 2) - (paddleHeight / 2)), boxWidth, paddleHeight} };
+        leftPaddleStates[1] = leftPaddleStates[0];
+        rightPaddleStates[0] = { now, {(resolutionX - edgeOffset - boxWidth), ((resolutionY / 2) - (paddleHeight / 2)), boxWidth, paddleHeight} };
+        rightPaddleStates[1] = rightPaddleStates[0];
+        ballStates[0] = { now, {((resolutionX / 2) - (boxWidth / 2)), ((resolutionY / 2) - (boxWidth / 2)), boxWidth, boxWidth} };
+        ballStates[1] = ballStates[0];
+        leftPaddle = leftPaddleStates[0].value;
+        rightPaddle = rightPaddleStates[0].value;
+        ball = ballStates[0].value;
+
+        sendGoalToRightPlayer = true;
         ballDirectionX = randomDirection();
         ballDirectionY = randomDirection();
         ballVelocity = INITIAL_BALL_VELOCITY;
@@ -345,9 +404,22 @@ int main(int argc, char* argv[]) {
         ballVelocity = std::min(BALL_MAX_VELOCITY, ballVelocity);
       }
     } else {
-      if (SDL_HasIntersection(&ball, &rightGoal)) {
-        // TODO give a score to left player.
-        // TODO reset ball & paddles to initial positions.
+      if (isServer && SDL_HasIntersection(&ball, &rightGoal)) {
+        leftPlayerScore++;
+        printf("Left player score: %d\n", leftPlayerScore);
+
+        // TODO cleanup this to follow DRY.
+        leftPaddleStates[0] = { now, {edgeOffset, ((resolutionY / 2) - (paddleHeight / 2)), boxWidth, paddleHeight} };
+        leftPaddleStates[1] = leftPaddleStates[0];
+        rightPaddleStates[0] = { now, {(resolutionX - edgeOffset - boxWidth), ((resolutionY / 2) - (paddleHeight / 2)), boxWidth, paddleHeight} };
+        rightPaddleStates[1] = rightPaddleStates[0];
+        ballStates[0] = { now, {((resolutionX / 2) - (boxWidth / 2)), ((resolutionY / 2) - (boxWidth / 2)), boxWidth, boxWidth} };
+        ballStates[1] = ballStates[0];
+        leftPaddle = leftPaddleStates[0].value;
+        rightPaddle = rightPaddleStates[0].value;
+        ball = ballStates[0].value;
+
+        sendGoalToLeftPlayer = true;
         ballDirectionX = randomDirection();
         ballDirectionY = randomDirection();
         ballVelocity = INITIAL_BALL_VELOCITY;
