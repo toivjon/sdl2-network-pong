@@ -12,8 +12,6 @@
 
 using namespace std::chrono;
 
-#define MAX_PACKAGE_SIZE 512
-
 // ===========================================
 // = APPLICATION CONFIGURATION AND CONSTANTS =
 // ===========================================
@@ -26,6 +24,9 @@ const auto DIRECTION_DOWN  =  1;
 const auto DIRECTION_LEFT  = -1;
 const auto DIRECTION_RIGHT =  1;
 const auto DIRECTION_NONE  =  0;
+
+const auto MAX_PACKAGE_SIZE    = 512;
+const auto SERVER_INIT_TIMEOUT = 1000 * 60 * 5;
 
 // =======================
 // = RANDOM DISTRIBUTION =
@@ -96,7 +97,7 @@ int main(int argc, char* argv[]) {
   auto clockOffset = 0ll;
   if (isServer) {
     printf("Waiting for a client to join the game...\n");
-    result = SDLNet_CheckSockets(socketSet, 1000 * 60 * 5);
+    result = SDLNet_CheckSockets(socketSet, SERVER_INIT_TIMEOUT);
     auto clientSocket = SDLNet_TCP_Accept(socket);
     SDL_assert(clientSocket != NULL);
     result = SDLNet_TCP_AddSocket(socketSet, clientSocket);
@@ -233,7 +234,7 @@ int main(int argc, char* argv[]) {
             rightPlayerScore++;
             printf("Right player score: %d\n", rightPlayerScore);
           }
-        } else if (tokens.size() >= 3) {
+        } else if (tokens.size() >= 2) {
           if (tokens[0] == "rp") {
             rightPaddle.y = stod(tokens[1]);
           } else if (tokens[0] == "lp") {
