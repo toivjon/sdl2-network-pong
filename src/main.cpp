@@ -25,8 +25,11 @@ const auto DIRECTION_LEFT  = -1;
 const auto DIRECTION_RIGHT =  1;
 const auto DIRECTION_NONE  =  0;
 
-const auto MAX_PACKAGE_SIZE    = 512;
+const auto MAX_PACKAGE_SIZE = 512;
 const auto SERVER_INIT_TIMEOUT = 1000 * 60 * 5;
+
+const auto PADDLE_HEIGHT = (RESOLUTION_HEIGHT / 6);
+const auto PADDLE_VELOCITY = (RESOLUTION_WIDTH / 100);
 
 // =======================
 // = RANDOM DISTRIBUTION =
@@ -140,11 +143,10 @@ int main(int argc, char* argv[]) {
   // create the set of game objects.
   auto boxWidth = (RESOLUTION_HEIGHT / 30);
   auto edgeOffset = (RESOLUTION_HEIGHT / 20);
-  auto paddleHeight = (RESOLUTION_HEIGHT / 6);
   SDL_Rect topWall = { 0, 0, RESOLUTION_WIDTH, boxWidth};
   SDL_Rect bottomWall = { 0, (RESOLUTION_HEIGHT - boxWidth), RESOLUTION_WIDTH, boxWidth };
-  SDL_Rect leftPaddle = { edgeOffset, ((RESOLUTION_HEIGHT / 2) - (paddleHeight / 2)), boxWidth, paddleHeight};
-  SDL_Rect rightPaddle = { (RESOLUTION_WIDTH - edgeOffset - boxWidth), ((RESOLUTION_HEIGHT / 2) - (paddleHeight / 2)), boxWidth, paddleHeight};
+  SDL_Rect leftPaddle = { edgeOffset, ((RESOLUTION_HEIGHT / 2) - (PADDLE_HEIGHT / 2)), boxWidth, PADDLE_HEIGHT};
+  SDL_Rect rightPaddle = { (RESOLUTION_WIDTH - edgeOffset - boxWidth), ((RESOLUTION_HEIGHT / 2) - (PADDLE_HEIGHT / 2)), boxWidth, PADDLE_HEIGHT};
   SDL_Rect ball = { ((RESOLUTION_WIDTH / 2) - (boxWidth / 2)), ((RESOLUTION_HEIGHT / 2) - (boxWidth / 2)), boxWidth, boxWidth };
   SDL_Rect leftGoal = { -1000, 0, (1000 - boxWidth), RESOLUTION_HEIGHT };
   SDL_Rect rightGoal = { RESOLUTION_WIDTH + boxWidth, 0, 1000, RESOLUTION_HEIGHT };
@@ -156,8 +158,7 @@ int main(int argc, char* argv[]) {
 
   // variables used within the ingame logic.
   auto now = millis() + clockOffset;
-  const auto paddleVelocity = (RESOLUTION_WIDTH / 100);
-  auto paddleDirection = 0;
+  auto paddleDirection = DIRECTION_NONE;
   auto sendLeftPaddleStateRequired = false;
   auto sendRightPaddleStateRequired = false;
   auto sendBallStateRequired = false;
@@ -300,7 +301,7 @@ int main(int argc, char* argv[]) {
 
     // move the controlled paddle when required.
     if (paddleDirection != DIRECTION_NONE) {
-      auto movement = paddleVelocity * paddleDirection;
+      auto movement = PADDLE_VELOCITY * paddleDirection;
       if (isServer) {
         leftPaddle.y += movement;
         sendLeftPaddleStateRequired = true;
