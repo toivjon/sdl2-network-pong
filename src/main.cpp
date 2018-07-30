@@ -322,14 +322,14 @@ int main(int argc, char* argv[]) {
     if (SDL_HasIntersection(&leftPaddle, &topWall)) {
       leftPaddle.y = (topWall.y + topWall.h);
     } else if (SDL_HasIntersection(&leftPaddle, &bottomWall)) {
-      leftPaddle.y = (bottomWall.y - paddleHeight);
+      leftPaddle.y = (bottomWall.y - PADDLE_HEIGHT);
     }
 
     // check that the right paddle stays between the top and bottom walls.
     if (SDL_HasIntersection(&rightPaddle, &topWall)) {
       rightPaddle.y = (topWall.y + topWall.h);
     } else if (SDL_HasIntersection(&rightPaddle, &bottomWall)) {
-      rightPaddle.y = (bottomWall.y - paddleHeight);
+      rightPaddle.y = (bottomWall.y - PADDLE_HEIGHT);
     }
 
     // check whether the ball hits walls.
