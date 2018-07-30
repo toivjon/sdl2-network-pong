@@ -332,7 +332,7 @@ int main(int argc, char* argv[]) {
     }
 
     // check whether the ball hits walls.
-    if (ballDirectionY > 0) {
+    if (ballDirectionY == DIRECTION_DOWN) {
       if (SDL_HasIntersection(&ball, &bottomWall)) {
         ball.y = bottomWall.y - ball.h;
         ballDirectionY *= -1;
@@ -345,7 +345,7 @@ int main(int argc, char* argv[]) {
     }
 
     // check whether the ball hits goals or paddles.
-    if (ballDirectionX < 0) {
+    if (ballDirectionX == DIRECTION_LEFT) {
       if (isServer && SDL_HasIntersection(&ball, &leftGoal)) {
         rightPlayerScore++;
         printf("Right player score: %d\n", rightPlayerScore);
