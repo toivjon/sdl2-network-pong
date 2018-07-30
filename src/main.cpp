@@ -27,6 +27,7 @@ const auto DIRECTION_NONE  =  0;
 
 const auto MAX_PACKAGE_SIZE = 512;
 const auto SERVER_INIT_TIMEOUT = 1000 * 60 * 5;
+const auto NETWORK_SEND_INTERVAL = 10ll;
 
 const auto PADDLE_HEIGHT = (RESOLUTION_HEIGHT / 6);
 const auto PADDLE_VELOCITY = (RESOLUTION_WIDTH / 100);
@@ -164,8 +165,7 @@ int main(int argc, char* argv[]) {
   auto sendBallStateRequired = false;
   auto sendGoalToLeftPlayer = false;
   auto sendGoalToRightPlayer = false;
-  const auto UPDATE_INTERVAL_MS = 10ll;
-  auto nextUpdateMs = millis() + UPDATE_INTERVAL_MS;
+  auto nextUpdateMs = millis() + NETWORK_SEND_INTERVAL;
   auto ballDirectionX = randomDirection();
   auto ballDirectionY = randomDirection();
   const auto INITIAL_BALL_VELOCITY = 2;
@@ -279,7 +279,7 @@ int main(int argc, char* argv[]) {
         SDL_assert(result == (int)buffer.size());
         sendBallStateRequired = false;
       }
-      nextUpdateMs = now + UPDATE_INTERVAL_MS;
+      nextUpdateMs = now + NETWORK_SEND_INTERVAL;
     }
 
     // check whether we need to indicate client about a goal.
