@@ -14,12 +14,18 @@ using namespace std::chrono;
 
 #define MAX_PACKAGE_SIZE 512
 
-// =============================
-// = APPLICATION CONFIGURATION =
-// =============================
+// ===========================================
+// = APPLICATION CONFIGURATION AND CONSTANTS =
+// ===========================================
 
 const auto RESOLUTION_WIDTH  = 800;
 const auto RESOLUTION_HEIGHT = 600;
+
+const auto DIRECTION_UP    = -1;
+const auto DIRECTION_DOWN  =  1;
+const auto DIRECTION_LEFT  = -1;
+const auto DIRECTION_RIGHT =  1;
+const auto DIRECTION_NONE  =  0;
 
 // =======================
 // = RANDOM DISTRIBUTION =
@@ -186,23 +192,23 @@ int main(int argc, char* argv[]) {
         case SDL_KEYDOWN:
           switch (event.key.keysym.sym) {
             case SDLK_UP:
-              paddleDirection = -1;
+              paddleDirection = DIRECTION_UP;
               break;
             case SDLK_DOWN:
-              paddleDirection = 1;
+              paddleDirection = DIRECTION_DOWN;
               break;
           }
           break;
         case SDL_KEYUP:
           switch (event.key.keysym.sym) {
             case SDLK_UP:
-              if (paddleDirection == -1) {
-                paddleDirection = 0;
+              if (paddleDirection == DIRECTION_UP) {
+                paddleDirection = DIRECTION_NONE;
               }
               break;
             case SDLK_DOWN:
-              if (paddleDirection == 1) {
-                paddleDirection = 0;
+              if (paddleDirection == DIRECTION_DOWN) {
+                paddleDirection = DIRECTION_NONE;
               }
               break;
           }
