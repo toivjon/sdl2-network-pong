@@ -43,16 +43,34 @@ inline int randomDirection() {
   return (distribution(generator) == 0 ? -1 : 1);
 }
 
+inline std::string serialize(const std::string& id, const SDL_Rect& rect) {
+  std::string data;
+  data.append("#");
+  data.append(id);
+  data.append(" ");
+  data.append(std::to_string(rect.x));
+  data.append(" ");
+  data.append(std::to_string(rect.y));
+  return data;
+}
+
+inline std::string serialize(const std::string& id) {
+  std::string data;
+  data.append("#");
+  data.append(id);
+  return data;
+}
+
 inline int64_t millis() {
   return duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
 }
 
-inline std::vector<std::string> split(const std::string& s)
+inline std::vector<std::string> split(const std::string& s, char delimiter)
 {
    std::vector<std::string> tokens;
    std::istringstream tokenStream(s);
    std::string token;
-   while (std::getline(tokenStream, token, ' ')) {
+   while (std::getline(tokenStream, token, delimiter)) {
       tokens.push_back(token);
    }
    return tokens;
@@ -132,7 +150,7 @@ int main(int argc, char* argv[]) {
     recvBuffer[result] = '\0';
 
     // calculate round-trip, latency and delta.
-    auto tokens = split(recvBuffer);
+    auto tokens = split(recvBuffer, ' ');
     SDL_assert(tokens.size() == 2);
     auto roundTrip = millis() - stoll(tokens[0]);
     auto latency = (roundTrip / 2);
@@ -178,6 +196,7 @@ int main(int argc, char* argv[]) {
   auto isRunning = true;
   SDL_Event event;
   while (isRunning) {
+    now = millis();
     while(SDL_PollEvent(&event) != 0) {
       switch (event.type) {
         case SDL_QUIT:
@@ -225,24 +244,24 @@ int main(int argc, char* argv[]) {
       } else {
         // TODO handle the received message.
         buffer[receivedCount] = '\0';
-        printf("recv: %s [%d]\n", buffer, receivedCount);
-        auto tokens = split(buffer);
-        if (tokens.size() == 1) {
-          if (tokens[0] == "gl") {
-            leftPlayerScore++;
-            printf("Left player score: %d\n", leftPlayerScore);
-          } else if (tokens[0] == "gr") {
-            rightPlayerScore++;
-            printf("Right player score: %d\n", rightPlayerScore);
-          }
-        } else if (tokens.size() >= 2) {
-          if (tokens[0] == "rp") {
-            rightPaddle.y = stod(tokens[1]);
-          } else if (tokens[0] == "lp") {
-            leftPaddle.y = stod(tokens[1]);
-          } else if (tokens[0] == "b") {
-            ball.x = stod(tokens[1]);
-            ball.y = stod(tokens[2]);
+        auto events = split(buffer, '#');
+        for (const auto& event : events) {
+          if (event.empty() == false) {
+            auto parts = split(event, ' ');
+            if (parts[0] == "gl") {
+              leftPlayerScore++;
+              printf("Left player score: %d\n", leftPlayerScore);
+            } else if (parts[0] == "gr") {
+              rightPlayerScore++;
+              printf("Right player score: %d\n", rightPlayerScore);
+            } else if (parts[0] == "rp") {
+              rightPaddle.y = stod(parts[2]);
+            } else if (parts[0] == "lp") {
+              leftPaddle.y = stod(parts[2]);
+            } else if (parts[0] == "b") {
+              ball.x = stod(parts[1]);
+              ball.y = stod(parts[2]);
+            }
           }
         }
       }
@@ -251,32 +270,21 @@ int main(int argc, char* argv[]) {
     // send necessary update events to the remote connection.
     if (now >= nextUpdateMs) {
       if (sendLeftPaddleStateRequired) {
-        std::string buffer;
-        buffer += "lp";
-        buffer += " ";
-        buffer += std::to_string(leftPaddle.y);
-        result = SDLNet_TCP_Send(socket, buffer.c_str(), buffer.size());
-        SDL_assert(result == (int)buffer.size());
+        std::string data = serialize("lp", leftPaddle);
+        result = SDLNet_TCP_Send(socket, data.c_str(), data.size());
+        SDL_assert(result == (int)data.size());
         sendLeftPaddleStateRequired = false;
       }
       if (sendRightPaddleStateRequired) {
-        std::string buffer;
-        buffer += "rp";
-        buffer += " ";
-        buffer += std::to_string(rightPaddle.y);
-        result = SDLNet_TCP_Send(socket, buffer.c_str(), buffer.size());
-        SDL_assert(result == (int)buffer.size());
+        std::string data = serialize("rp", rightPaddle);
+        result = SDLNet_TCP_Send(socket, data.c_str(), data.size());
+        SDL_assert(result == (int)data.size());
         sendRightPaddleStateRequired = false;
       }
       if (sendBallStateRequired) {
-        std::string buffer;
-        buffer += "b";
-        buffer += " ";
-        buffer += std::to_string(ball.x);
-        buffer += " ";
-        buffer += std::to_string(ball.y);
-        result = SDLNet_TCP_Send(socket, buffer.c_str(), buffer.size());
-        SDL_assert(result == (int)buffer.size());
+        std::string data = serialize("b", ball);
+        result = SDLNet_TCP_Send(socket, data.c_str(), data.size());
+        SDL_assert(result == (int)data.size());
         sendBallStateRequired = false;
       }
       nextUpdateMs = now + NETWORK_SEND_INTERVAL;
@@ -285,17 +293,15 @@ int main(int argc, char* argv[]) {
     // check whether we need to indicate client about a goal.
     if (isServer) {
       if (sendGoalToLeftPlayer) {
-        std::string buffer("gl");
-        result = SDLNet_TCP_Send(socket, buffer.c_str(), buffer.size());
-        SDL_assert(result == (int)buffer.size());
+        std::string data = serialize("gl");
+        result = SDLNet_TCP_Send(socket, data.c_str(), data.size());
+        SDL_assert(result == (int)data.size());
         sendGoalToLeftPlayer = false;
-        printf("sent goal message to client!");
       } else if (sendGoalToRightPlayer) {
-        std::string buffer("gr");
-        result = SDLNet_TCP_Send(socket, buffer.c_str(), buffer.size());
-        SDL_assert(result == (int)buffer.size());
+        std::string data = serialize("gr");
+        result = SDLNet_TCP_Send(socket, data.c_str(), data.size());
+        SDL_assert(result == (int)data.size());
         sendGoalToRightPlayer = false;
-        printf("sent goal message to client!");
       }
     }
 
@@ -354,6 +360,7 @@ int main(int argc, char* argv[]) {
         ballDirectionX = randomDirection();
         ballDirectionY = randomDirection();
         ballVelocity = INITIAL_BALL_VELOCITY;
+        ball = {((RESOLUTION_WIDTH / 2) - (boxWidth / 2)), ((RESOLUTION_HEIGHT / 2) - (boxWidth / 2)), boxWidth, boxWidth};
       } else if (SDL_HasIntersection(&ball, &leftPaddle)) {
         ball.x = leftPaddle.x + leftPaddle.w;
         ballDirectionX *= -1;
@@ -368,6 +375,7 @@ int main(int argc, char* argv[]) {
         ballDirectionX = randomDirection();
         ballDirectionY = randomDirection();
         ballVelocity = INITIAL_BALL_VELOCITY;
+        ball = {((RESOLUTION_WIDTH / 2) - (boxWidth / 2)), ((RESOLUTION_HEIGHT / 2) - (boxWidth / 2)), boxWidth, boxWidth};
       } else if (SDL_HasIntersection(&ball, &rightPaddle)) {
         ball.x = rightPaddle.x - ball.w;
         ballDirectionX *= -1;
