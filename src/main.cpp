@@ -29,6 +29,8 @@ const auto MAX_PACKAGE_SIZE = 512;
 const auto SERVER_INIT_TIMEOUT = 1000 * 60 * 5;
 const auto NETWORK_SEND_INTERVAL = 10ll;
 
+const auto BOX_WIDTH = (RESOLUTION_HEIGHT / 30);
+
 const auto PADDLE_HEIGHT = (RESOLUTION_HEIGHT / 6);
 const auto PADDLE_VELOCITY = (RESOLUTION_WIDTH / 100);
 
@@ -160,19 +162,18 @@ int main(int argc, char* argv[]) {
   }
 
   // create the set of game objects.
-  auto boxWidth = (RESOLUTION_HEIGHT / 30);
   auto edgeOffset = (RESOLUTION_HEIGHT / 20);
-  SDL_Rect topWall = { 0, 0, RESOLUTION_WIDTH, boxWidth};
-  SDL_Rect bottomWall = { 0, (RESOLUTION_HEIGHT - boxWidth), RESOLUTION_WIDTH, boxWidth };
-  SDL_Rect leftPaddle = { edgeOffset, ((RESOLUTION_HEIGHT / 2) - (PADDLE_HEIGHT / 2)), boxWidth, PADDLE_HEIGHT};
-  SDL_Rect rightPaddle = { (RESOLUTION_WIDTH - edgeOffset - boxWidth), ((RESOLUTION_HEIGHT / 2) - (PADDLE_HEIGHT / 2)), boxWidth, PADDLE_HEIGHT};
-  SDL_Rect ball = { ((RESOLUTION_WIDTH / 2) - (boxWidth / 2)), ((RESOLUTION_HEIGHT / 2) - (boxWidth / 2)), boxWidth, boxWidth };
-  SDL_Rect leftGoal = { -1000, 0, (1000 - boxWidth), RESOLUTION_HEIGHT };
-  SDL_Rect rightGoal = { RESOLUTION_WIDTH + boxWidth, 0, 1000, RESOLUTION_HEIGHT };
+  SDL_Rect topWall = { 0, 0, RESOLUTION_WIDTH, BOX_WIDTH};
+  SDL_Rect bottomWall = { 0, (RESOLUTION_HEIGHT - BOX_WIDTH), RESOLUTION_WIDTH, BOX_WIDTH };
+  SDL_Rect leftPaddle = { edgeOffset, ((RESOLUTION_HEIGHT / 2) - (PADDLE_HEIGHT / 2)), BOX_WIDTH, PADDLE_HEIGHT};
+  SDL_Rect rightPaddle = { (RESOLUTION_WIDTH - edgeOffset - BOX_WIDTH), ((RESOLUTION_HEIGHT / 2) - (PADDLE_HEIGHT / 2)), BOX_WIDTH, PADDLE_HEIGHT};
+  SDL_Rect ball = { ((RESOLUTION_WIDTH / 2) - (BOX_WIDTH / 2)), ((RESOLUTION_HEIGHT / 2) - (BOX_WIDTH / 2)), BOX_WIDTH, BOX_WIDTH };
+  SDL_Rect leftGoal = { -1000, 0, (1000 - BOX_WIDTH), RESOLUTION_HEIGHT };
+  SDL_Rect rightGoal = { RESOLUTION_WIDTH + BOX_WIDTH, 0, 1000, RESOLUTION_HEIGHT };
   SDL_Rect centerLine[15];
   for (auto i = 0; i < 15; i++) {
-    auto y = static_cast<int>(boxWidth + (i * 1.93f * boxWidth));
-    centerLine[i] = { ((RESOLUTION_WIDTH / 2) - (boxWidth / 2)), y, boxWidth, boxWidth };
+    auto y = static_cast<int>(BOX_WIDTH + (i * 1.93f * BOX_WIDTH));
+    centerLine[i] = { ((RESOLUTION_WIDTH / 2) - (BOX_WIDTH / 2)), y, BOX_WIDTH, BOX_WIDTH };
   }
 
   // variables used within the ingame logic.
@@ -360,7 +361,7 @@ int main(int argc, char* argv[]) {
         ballDirectionX = randomDirection();
         ballDirectionY = randomDirection();
         ballVelocity = INITIAL_BALL_VELOCITY;
-        ball = {((RESOLUTION_WIDTH / 2) - (boxWidth / 2)), ((RESOLUTION_HEIGHT / 2) - (boxWidth / 2)), boxWidth, boxWidth};
+        ball = {((RESOLUTION_WIDTH / 2) - (BOX_WIDTH / 2)), ((RESOLUTION_HEIGHT / 2) - (BOX_WIDTH / 2)), BOX_WIDTH, BOX_WIDTH};
       } else if (SDL_HasIntersection(&ball, &leftPaddle)) {
         ball.x = leftPaddle.x + leftPaddle.w;
         ballDirectionX *= -1;
@@ -375,7 +376,7 @@ int main(int argc, char* argv[]) {
         ballDirectionX = randomDirection();
         ballDirectionY = randomDirection();
         ballVelocity = INITIAL_BALL_VELOCITY;
-        ball = {((RESOLUTION_WIDTH / 2) - (boxWidth / 2)), ((RESOLUTION_HEIGHT / 2) - (boxWidth / 2)), boxWidth, boxWidth};
+        ball = {((RESOLUTION_WIDTH / 2) - (BOX_WIDTH / 2)), ((RESOLUTION_HEIGHT / 2) - (BOX_WIDTH / 2)), BOX_WIDTH, BOX_WIDTH};
       } else if (SDL_HasIntersection(&ball, &rightPaddle)) {
         ball.x = rightPaddle.x - ball.w;
         ballDirectionX *= -1;
