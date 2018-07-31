@@ -39,6 +39,15 @@ const auto BALL_INITIAL_VELOCITY = 2;
 const auto BALL_MAX_VELOCITY = 8;
 const auto BALL_COUNTDOWN = 1000;
 
+// ==================
+// = Static Objects =
+// ==================
+
+const SDL_Rect TOP_WALL = { 0, 0, RESOLUTION_WIDTH, BOX_WIDTH };
+const SDL_Rect BTM_WALL = { 0, (RESOLUTION_HEIGHT - BOX_WIDTH), RESOLUTION_WIDTH, BOX_WIDTH };
+const SDL_Rect LEFT_GOAL = { -1000, 0, (1000 - BOX_WIDTH), RESOLUTION_HEIGHT };
+const SDL_Rect RIGHT_GOAL = { RESOLUTION_WIDTH + BOX_WIDTH, 0, 1000, RESOLUTION_HEIGHT };
+
 // =======================
 // = RANDOM DISTRIBUTION =
 // =======================
@@ -167,13 +176,9 @@ int main(int argc, char* argv[]) {
   }
 
   // create the set of game objects.
-  SDL_Rect topWall = { 0, 0, RESOLUTION_WIDTH, BOX_WIDTH};
-  SDL_Rect bottomWall = { 0, (RESOLUTION_HEIGHT - BOX_WIDTH), RESOLUTION_WIDTH, BOX_WIDTH };
   SDL_Rect leftPaddle = { PADDLE_EDGE_OFFSET, ((RESOLUTION_HEIGHT / 2) - (PADDLE_HEIGHT / 2)), BOX_WIDTH, PADDLE_HEIGHT};
   SDL_Rect rightPaddle = { (RESOLUTION_WIDTH - PADDLE_EDGE_OFFSET - BOX_WIDTH), ((RESOLUTION_HEIGHT / 2) - (PADDLE_HEIGHT / 2)), BOX_WIDTH, PADDLE_HEIGHT};
   SDL_Rect ball = { ((RESOLUTION_WIDTH / 2) - (BOX_WIDTH / 2)), ((RESOLUTION_HEIGHT / 2) - (BOX_WIDTH / 2)), BOX_WIDTH, BOX_WIDTH };
-  SDL_Rect leftGoal = { -1000, 0, (1000 - BOX_WIDTH), RESOLUTION_HEIGHT };
-  SDL_Rect rightGoal = { RESOLUTION_WIDTH + BOX_WIDTH, 0, 1000, RESOLUTION_HEIGHT };
   SDL_Rect centerLine[15];
   for (auto i = 0; i < 15; i++) {
     auto y = static_cast<int>(BOX_WIDTH + (i * 1.93f * BOX_WIDTH));
@@ -329,35 +334,35 @@ int main(int argc, char* argv[]) {
     }
 
     // check that the left paddle stays between the top and bottom walls.
-    if (SDL_HasIntersection(&leftPaddle, &topWall)) {
-      leftPaddle.y = (topWall.y + topWall.h);
-    } else if (SDL_HasIntersection(&leftPaddle, &bottomWall)) {
-      leftPaddle.y = (bottomWall.y - PADDLE_HEIGHT);
+    if (SDL_HasIntersection(&leftPaddle, &TOP_WALL)) {
+      leftPaddle.y = (TOP_WALL.y + TOP_WALL.h);
+    } else if (SDL_HasIntersection(&leftPaddle, &BTM_WALL)) {
+      leftPaddle.y = (BTM_WALL.y - PADDLE_HEIGHT);
     }
 
     // check that the right paddle stays between the top and bottom walls.
-    if (SDL_HasIntersection(&rightPaddle, &topWall)) {
-      rightPaddle.y = (topWall.y + topWall.h);
-    } else if (SDL_HasIntersection(&rightPaddle, &bottomWall)) {
-      rightPaddle.y = (bottomWall.y - PADDLE_HEIGHT);
+    if (SDL_HasIntersection(&rightPaddle, &TOP_WALL)) {
+      rightPaddle.y = (TOP_WALL.y + TOP_WALL.h);
+    } else if (SDL_HasIntersection(&rightPaddle, &BTM_WALL)) {
+      rightPaddle.y = (BTM_WALL.y - PADDLE_HEIGHT);
     }
 
     // check whether the ball hits walls.
     if (ballDirectionY == DIRECTION_DOWN) {
-      if (SDL_HasIntersection(&ball, &bottomWall)) {
-        ball.y = bottomWall.y - ball.h;
+      if (SDL_HasIntersection(&ball, &BTM_WALL)) {
+        ball.y = BTM_WALL.y - ball.h;
         ballDirectionY *= -1;
       }
     } else {
-      if (SDL_HasIntersection(&ball, &topWall)) {
-        ball.y = topWall.y + topWall.h;
+      if (SDL_HasIntersection(&ball, &TOP_WALL)) {
+        ball.y = TOP_WALL.y + TOP_WALL.h;
         ballDirectionY *= -1;
       }
     }
 
     // check whether the ball hits goals or paddles.
     if (ballDirectionX == DIRECTION_LEFT) {
-      if (isServer && SDL_HasIntersection(&ball, &leftGoal)) {
+      if (isServer && SDL_HasIntersection(&ball, &LEFT_GOAL)) {
         rightPlayerScore++;
         printf("Right player score: %d\n", rightPlayerScore);
         sendGoalToRightPlayer = true;
@@ -373,7 +378,7 @@ int main(int argc, char* argv[]) {
         ballVelocity = std::min(BALL_MAX_VELOCITY, ballVelocity);
       }
     } else {
-      if (isServer && SDL_HasIntersection(&ball, &rightGoal)) {
+      if (isServer && SDL_HasIntersection(&ball, &RIGHT_GOAL)) {
         leftPlayerScore++;
         printf("Left player score: %d\n", leftPlayerScore);
         sendGoalToLeftPlayer = true;
@@ -396,8 +401,8 @@ int main(int argc, char* argv[]) {
 
     // render all visible game objects on the backbuffer.
     SDL_SetRenderDrawColor(renderer, 0xff, 0xff, 0xff, 0xff);
-    SDL_RenderFillRect(renderer, &topWall);
-    SDL_RenderFillRect(renderer, &bottomWall);
+    SDL_RenderFillRect(renderer, &TOP_WALL);
+    SDL_RenderFillRect(renderer, &BTM_WALL);
     SDL_RenderFillRect(renderer, &leftPaddle);
     SDL_RenderFillRect(renderer, &rightPaddle);
     SDL_RenderFillRect(renderer, &ball);
