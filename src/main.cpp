@@ -12,11 +12,13 @@
 
 using namespace std::chrono;
 
-// ===========================================
-// = APPLICATION CONFIGURATION AND CONSTANTS =
-// ===========================================
+// ===============================
+// = Constants and Configuration =
+// ===============================
 
-const auto RESOLUTION_WIDTH  = 800;
+// game resolution width in pixels.
+const auto RESOLUTION_WIDTH = 800;
+// game resolution height in pixels.
 const auto RESOLUTION_HEIGHT = 600;
 
 const auto DIRECTION_UP    = -1;
