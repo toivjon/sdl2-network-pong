@@ -67,6 +67,39 @@ const SDL_Rect CENTER_LINE[15] = {
   { ((RESOLUTION_WIDTH / 2) - (BOX_WIDTH / 2)), static_cast<int>(BOX_WIDTH + (14 * 1.93f * BOX_WIDTH)), BOX_WIDTH, BOX_WIDTH },
 };
 
+// ===================
+// = Dynamic Objects =
+// ===================
+
+// the starting position of the left paddle.
+const SDL_Rect LEFT_PADDLE_START = {
+  PADDLE_EDGE_OFFSET,
+  ((RESOLUTION_HEIGHT / 2) - (PADDLE_HEIGHT / 2)),
+  BOX_WIDTH,
+  PADDLE_HEIGHT
+};
+// the starting position of the right paddle.
+const SDL_Rect RIGHT_PADDLE_START = {
+  (RESOLUTION_WIDTH - PADDLE_EDGE_OFFSET - BOX_WIDTH),
+  ((RESOLUTION_HEIGHT / 2) - (PADDLE_HEIGHT / 2)),
+  BOX_WIDTH,
+  PADDLE_HEIGHT
+};
+// the starting position of the ball.
+const SDL_Rect BALL_START = {
+  ((RESOLUTION_WIDTH / 2) - (BOX_WIDTH / 2)),
+  ((RESOLUTION_HEIGHT / 2) - (BOX_WIDTH / 2)),
+  BOX_WIDTH,
+  BOX_WIDTH
+};
+
+// the current position of the left paddle.
+static SDL_Rect leftPaddle = LEFT_PADDLE_START;
+// the current position of the right paddle.
+static SDL_Rect rightPaddle = RIGHT_PADDLE_START;
+// the current position of the ball.
+static SDL_Rect ball = BALL_START;
+
 // =======================
 // = RANDOM DISTRIBUTION =
 // =======================
@@ -194,11 +227,6 @@ int main(int argc, char* argv[]) {
     clockOffset = delta + latency;
   }
 
-  // create dynamic game objects.
-  SDL_Rect leftPaddle = { PADDLE_EDGE_OFFSET, ((RESOLUTION_HEIGHT / 2) - (PADDLE_HEIGHT / 2)), BOX_WIDTH, PADDLE_HEIGHT};
-  SDL_Rect rightPaddle = { (RESOLUTION_WIDTH - PADDLE_EDGE_OFFSET - BOX_WIDTH), ((RESOLUTION_HEIGHT / 2) - (PADDLE_HEIGHT / 2)), BOX_WIDTH, PADDLE_HEIGHT};
-  SDL_Rect ball = { ((RESOLUTION_WIDTH / 2) - (BOX_WIDTH / 2)), ((RESOLUTION_HEIGHT / 2) - (BOX_WIDTH / 2)), BOX_WIDTH, BOX_WIDTH };
-
   // variables used within the ingame logic.
   auto now = millis() + clockOffset;
   auto paddleDirection = DIRECTION_NONE;
@@ -267,6 +295,7 @@ int main(int argc, char* argv[]) {
       } else {
         // TODO handle the received message.
         buffer[receivedCount] = '\0';
+        printf("recv: %s\n", buffer); // TODO remove...
         auto events = split(buffer, '#');
         for (const auto& event : events) {
           if (event.empty() == false) {
@@ -384,7 +413,7 @@ int main(int argc, char* argv[]) {
         ballDirectionY = randomDirection();
         ballVelocity = BALL_INITIAL_VELOCITY;
         ballCountdown = now + BALL_COUNTDOWN;
-        ball = {((RESOLUTION_WIDTH / 2) - (BOX_WIDTH / 2)), ((RESOLUTION_HEIGHT / 2) - (BOX_WIDTH / 2)), BOX_WIDTH, BOX_WIDTH};
+        ball = BALL_START;
       } else if (SDL_HasIntersection(&ball, &leftPaddle)) {
         ball.x = leftPaddle.x + leftPaddle.w;
         ballDirectionX *= -1;
@@ -400,7 +429,7 @@ int main(int argc, char* argv[]) {
         ballDirectionY = randomDirection();
         ballVelocity = BALL_INITIAL_VELOCITY;
         ballCountdown = now + BALL_COUNTDOWN;
-        ball = {((RESOLUTION_WIDTH / 2) - (BOX_WIDTH / 2)), ((RESOLUTION_HEIGHT / 2) - (BOX_WIDTH / 2)), BOX_WIDTH, BOX_WIDTH};
+        ball = BALL_START;
       } else if (SDL_HasIntersection(&ball, &rightPaddle)) {
         ball.x = rightPaddle.x - ball.w;
         ballDirectionX *= -1;
