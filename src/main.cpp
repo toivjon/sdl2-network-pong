@@ -72,7 +72,7 @@ const SDL_Rect CENTER_LINE[15] = {
 // A shortcut to generate a random direction (-1 or 1).
 inline int randomDirection() {
   static std::default_random_engine generator;
-  static std::uniform_int_distribution<int> distribution;
+  static std::uniform_int_distribution<int> distribution(0, 1);
   return (distribution(generator) == 0 ? -1 : 1);
 }
 
@@ -110,6 +110,14 @@ inline std::vector<std::string> split(const std::string& s, char delimiter)
 }
 
 int main(int argc, char* argv[]) {
+  printf("%d\n", randomDirection());
+  printf("%d\n", randomDirection());
+  printf("%d\n", randomDirection());
+  printf("%d\n", randomDirection());
+  printf("%d\n", randomDirection());
+  printf("%d\n", randomDirection());
+  printf("%d\n", randomDirection());
+
   // parse command line arguments.
   auto isServer = (argc == 1);
   auto host = (isServer ? NULL : argv[1]);
