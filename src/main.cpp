@@ -35,6 +35,9 @@ const auto PADDLE_HEIGHT = (RESOLUTION_HEIGHT / 6);
 const auto PADDLE_VELOCITY = (RESOLUTION_WIDTH / 100);
 const auto PADDLE_EDGE_OFFSET = (RESOLUTION_HEIGHT / 20);
 
+const auto BALL_INITIAL_VELOCITY = 2;
+const auto BALL_MAX_VELOCITY = 8;
+
 // =======================
 // = RANDOM DISTRIBUTION =
 // =======================
@@ -187,9 +190,7 @@ int main(int argc, char* argv[]) {
   auto nextUpdateMs = millis() + NETWORK_SEND_INTERVAL;
   auto ballDirectionX = randomDirection();
   auto ballDirectionY = randomDirection();
-  const auto INITIAL_BALL_VELOCITY = 2;
-  const auto BALL_MAX_VELOCITY = 8;
-  auto ballVelocity = INITIAL_BALL_VELOCITY;
+  auto ballVelocity = BALL_INITIAL_VELOCITY;
   auto leftPlayerScore = 0;
   auto rightPlayerScore = 0;
 
@@ -360,7 +361,7 @@ int main(int argc, char* argv[]) {
         sendGoalToRightPlayer = true;
         ballDirectionX = randomDirection();
         ballDirectionY = randomDirection();
-        ballVelocity = INITIAL_BALL_VELOCITY;
+        ballVelocity = BALL_INITIAL_VELOCITY;
         ball = {((RESOLUTION_WIDTH / 2) - (BOX_WIDTH / 2)), ((RESOLUTION_HEIGHT / 2) - (BOX_WIDTH / 2)), BOX_WIDTH, BOX_WIDTH};
       } else if (SDL_HasIntersection(&ball, &leftPaddle)) {
         ball.x = leftPaddle.x + leftPaddle.w;
@@ -375,7 +376,7 @@ int main(int argc, char* argv[]) {
         sendGoalToLeftPlayer = true;
         ballDirectionX = randomDirection();
         ballDirectionY = randomDirection();
-        ballVelocity = INITIAL_BALL_VELOCITY;
+        ballVelocity = BALL_INITIAL_VELOCITY;
         ball = {((RESOLUTION_WIDTH / 2) - (BOX_WIDTH / 2)), ((RESOLUTION_HEIGHT / 2) - (BOX_WIDTH / 2)), BOX_WIDTH, BOX_WIDTH};
       } else if (SDL_HasIntersection(&ball, &rightPaddle)) {
         ball.x = rightPaddle.x - ball.w;
