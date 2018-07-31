@@ -47,6 +47,23 @@ const SDL_Rect TOP_WALL = { 0, 0, RESOLUTION_WIDTH, BOX_WIDTH };
 const SDL_Rect BOTTOM_WALL = { 0, (RESOLUTION_HEIGHT - BOX_WIDTH), RESOLUTION_WIDTH, BOX_WIDTH };
 const SDL_Rect LEFT_GOAL = { -1000, 0, (1000 - BOX_WIDTH), RESOLUTION_HEIGHT };
 const SDL_Rect RIGHT_GOAL = { RESOLUTION_WIDTH + BOX_WIDTH, 0, 1000, RESOLUTION_HEIGHT };
+const SDL_Rect CENTER_LINE[15] = {
+  { ((RESOLUTION_WIDTH / 2) - (BOX_WIDTH / 2)), static_cast<int>(BOX_WIDTH + (0 * 1.93f * BOX_WIDTH)), BOX_WIDTH, BOX_WIDTH },
+  { ((RESOLUTION_WIDTH / 2) - (BOX_WIDTH / 2)), static_cast<int>(BOX_WIDTH + (1 * 1.93f * BOX_WIDTH)), BOX_WIDTH, BOX_WIDTH },
+  { ((RESOLUTION_WIDTH / 2) - (BOX_WIDTH / 2)), static_cast<int>(BOX_WIDTH + (2 * 1.93f * BOX_WIDTH)), BOX_WIDTH, BOX_WIDTH },
+  { ((RESOLUTION_WIDTH / 2) - (BOX_WIDTH / 2)), static_cast<int>(BOX_WIDTH + (3 * 1.93f * BOX_WIDTH)), BOX_WIDTH, BOX_WIDTH },
+  { ((RESOLUTION_WIDTH / 2) - (BOX_WIDTH / 2)), static_cast<int>(BOX_WIDTH + (4 * 1.93f * BOX_WIDTH)), BOX_WIDTH, BOX_WIDTH },
+  { ((RESOLUTION_WIDTH / 2) - (BOX_WIDTH / 2)), static_cast<int>(BOX_WIDTH + (5 * 1.93f * BOX_WIDTH)), BOX_WIDTH, BOX_WIDTH },
+  { ((RESOLUTION_WIDTH / 2) - (BOX_WIDTH / 2)), static_cast<int>(BOX_WIDTH + (6 * 1.93f * BOX_WIDTH)), BOX_WIDTH, BOX_WIDTH },
+  { ((RESOLUTION_WIDTH / 2) - (BOX_WIDTH / 2)), static_cast<int>(BOX_WIDTH + (7 * 1.93f * BOX_WIDTH)), BOX_WIDTH, BOX_WIDTH },
+  { ((RESOLUTION_WIDTH / 2) - (BOX_WIDTH / 2)), static_cast<int>(BOX_WIDTH + (8 * 1.93f * BOX_WIDTH)), BOX_WIDTH, BOX_WIDTH },
+  { ((RESOLUTION_WIDTH / 2) - (BOX_WIDTH / 2)), static_cast<int>(BOX_WIDTH + (9 * 1.93f * BOX_WIDTH)), BOX_WIDTH, BOX_WIDTH },
+  { ((RESOLUTION_WIDTH / 2) - (BOX_WIDTH / 2)), static_cast<int>(BOX_WIDTH + (10 * 1.93f * BOX_WIDTH)), BOX_WIDTH, BOX_WIDTH },
+  { ((RESOLUTION_WIDTH / 2) - (BOX_WIDTH / 2)), static_cast<int>(BOX_WIDTH + (11 * 1.93f * BOX_WIDTH)), BOX_WIDTH, BOX_WIDTH },
+  { ((RESOLUTION_WIDTH / 2) - (BOX_WIDTH / 2)), static_cast<int>(BOX_WIDTH + (12 * 1.93f * BOX_WIDTH)), BOX_WIDTH, BOX_WIDTH },
+  { ((RESOLUTION_WIDTH / 2) - (BOX_WIDTH / 2)), static_cast<int>(BOX_WIDTH + (13 * 1.93f * BOX_WIDTH)), BOX_WIDTH, BOX_WIDTH },
+  { ((RESOLUTION_WIDTH / 2) - (BOX_WIDTH / 2)), static_cast<int>(BOX_WIDTH + (14 * 1.93f * BOX_WIDTH)), BOX_WIDTH, BOX_WIDTH },
+};
 
 // =======================
 // = RANDOM DISTRIBUTION =
@@ -175,15 +192,10 @@ int main(int argc, char* argv[]) {
     clockOffset = delta + latency;
   }
 
-  // create the set of game objects.
+  // create dynamic game objects.
   SDL_Rect leftPaddle = { PADDLE_EDGE_OFFSET, ((RESOLUTION_HEIGHT / 2) - (PADDLE_HEIGHT / 2)), BOX_WIDTH, PADDLE_HEIGHT};
   SDL_Rect rightPaddle = { (RESOLUTION_WIDTH - PADDLE_EDGE_OFFSET - BOX_WIDTH), ((RESOLUTION_HEIGHT / 2) - (PADDLE_HEIGHT / 2)), BOX_WIDTH, PADDLE_HEIGHT};
   SDL_Rect ball = { ((RESOLUTION_WIDTH / 2) - (BOX_WIDTH / 2)), ((RESOLUTION_HEIGHT / 2) - (BOX_WIDTH / 2)), BOX_WIDTH, BOX_WIDTH };
-  SDL_Rect centerLine[15];
-  for (auto i = 0; i < 15; i++) {
-    auto y = static_cast<int>(BOX_WIDTH + (i * 1.93f * BOX_WIDTH));
-    centerLine[i] = { ((RESOLUTION_WIDTH / 2) - (BOX_WIDTH / 2)), y, BOX_WIDTH, BOX_WIDTH };
-  }
 
   // variables used within the ingame logic.
   auto now = millis() + clockOffset;
@@ -401,12 +413,12 @@ int main(int argc, char* argv[]) {
 
     // render all visible game objects on the backbuffer.
     SDL_SetRenderDrawColor(renderer, 0xff, 0xff, 0xff, 0xff);
+    SDL_RenderFillRects(renderer, &CENTER_LINE[0], 15);
     SDL_RenderFillRect(renderer, &TOP_WALL);
     SDL_RenderFillRect(renderer, &BOTTOM_WALL);
     SDL_RenderFillRect(renderer, &leftPaddle);
     SDL_RenderFillRect(renderer, &rightPaddle);
     SDL_RenderFillRect(renderer, &ball);
-    SDL_RenderFillRects(renderer, &centerLine[0], 15);
 
     // swap backbuffer to front and vice versa.
     SDL_RenderPresent(renderer);
