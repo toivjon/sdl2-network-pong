@@ -33,6 +33,7 @@ const auto BOX_WIDTH = (RESOLUTION_HEIGHT / 30);
 
 const auto PADDLE_HEIGHT = (RESOLUTION_HEIGHT / 6);
 const auto PADDLE_VELOCITY = (RESOLUTION_WIDTH / 100);
+const auto PADDLE_EDGE_OFFSET = (RESOLUTION_HEIGHT / 20);
 
 // =======================
 // = RANDOM DISTRIBUTION =
@@ -162,11 +163,10 @@ int main(int argc, char* argv[]) {
   }
 
   // create the set of game objects.
-  auto edgeOffset = (RESOLUTION_HEIGHT / 20);
   SDL_Rect topWall = { 0, 0, RESOLUTION_WIDTH, BOX_WIDTH};
   SDL_Rect bottomWall = { 0, (RESOLUTION_HEIGHT - BOX_WIDTH), RESOLUTION_WIDTH, BOX_WIDTH };
-  SDL_Rect leftPaddle = { edgeOffset, ((RESOLUTION_HEIGHT / 2) - (PADDLE_HEIGHT / 2)), BOX_WIDTH, PADDLE_HEIGHT};
-  SDL_Rect rightPaddle = { (RESOLUTION_WIDTH - edgeOffset - BOX_WIDTH), ((RESOLUTION_HEIGHT / 2) - (PADDLE_HEIGHT / 2)), BOX_WIDTH, PADDLE_HEIGHT};
+  SDL_Rect leftPaddle = { PADDLE_EDGE_OFFSET, ((RESOLUTION_HEIGHT / 2) - (PADDLE_HEIGHT / 2)), BOX_WIDTH, PADDLE_HEIGHT};
+  SDL_Rect rightPaddle = { (RESOLUTION_WIDTH - PADDLE_EDGE_OFFSET - BOX_WIDTH), ((RESOLUTION_HEIGHT / 2) - (PADDLE_HEIGHT / 2)), BOX_WIDTH, PADDLE_HEIGHT};
   SDL_Rect ball = { ((RESOLUTION_WIDTH / 2) - (BOX_WIDTH / 2)), ((RESOLUTION_HEIGHT / 2) - (BOX_WIDTH / 2)), BOX_WIDTH, BOX_WIDTH };
   SDL_Rect leftGoal = { -1000, 0, (1000 - BOX_WIDTH), RESOLUTION_HEIGHT };
   SDL_Rect rightGoal = { RESOLUTION_WIDTH + BOX_WIDTH, 0, 1000, RESOLUTION_HEIGHT };
