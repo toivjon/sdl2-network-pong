@@ -110,14 +110,6 @@ inline std::vector<std::string> split(const std::string& s, char delimiter)
 }
 
 int main(int argc, char* argv[]) {
-  printf("%d\n", randomDirection());
-  printf("%d\n", randomDirection());
-  printf("%d\n", randomDirection());
-  printf("%d\n", randomDirection());
-  printf("%d\n", randomDirection());
-  printf("%d\n", randomDirection());
-  printf("%d\n", randomDirection());
-
   // parse command line arguments.
   auto isServer = (argc == 1);
   auto host = (isServer ? NULL : argv[1]);
