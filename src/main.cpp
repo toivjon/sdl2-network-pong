@@ -37,6 +37,7 @@ const auto PADDLE_EDGE_OFFSET = (RESOLUTION_HEIGHT / 20);
 
 const auto BALL_INITIAL_VELOCITY = 2;
 const auto BALL_MAX_VELOCITY = 8;
+const auto BALL_COUNTDOWN = 1000;
 
 // =======================
 // = RANDOM DISTRIBUTION =
@@ -193,6 +194,7 @@ int main(int argc, char* argv[]) {
   auto ballVelocity = BALL_INITIAL_VELOCITY;
   auto leftPlayerScore = 0;
   auto rightPlayerScore = 0;
+  auto ballCountdown = millis() + BALL_COUNTDOWN;
 
   // start the main loop.
   auto isRunning = true;
@@ -320,7 +322,7 @@ int main(int argc, char* argv[]) {
     }
 
     // move the ball.
-    if (isServer) {
+    if (isServer && now >= ballCountdown) {
       ball.x += ballDirectionX * ballVelocity;
       ball.y += ballDirectionY * ballVelocity;
       sendBallStateRequired = true;
@@ -362,6 +364,7 @@ int main(int argc, char* argv[]) {
         ballDirectionX = randomDirection();
         ballDirectionY = randomDirection();
         ballVelocity = BALL_INITIAL_VELOCITY;
+        ballCountdown = now + BALL_COUNTDOWN;
         ball = {((RESOLUTION_WIDTH / 2) - (BOX_WIDTH / 2)), ((RESOLUTION_HEIGHT / 2) - (BOX_WIDTH / 2)), BOX_WIDTH, BOX_WIDTH};
       } else if (SDL_HasIntersection(&ball, &leftPaddle)) {
         ball.x = leftPaddle.x + leftPaddle.w;
@@ -377,6 +380,7 @@ int main(int argc, char* argv[]) {
         ballDirectionX = randomDirection();
         ballDirectionY = randomDirection();
         ballVelocity = BALL_INITIAL_VELOCITY;
+        ballCountdown = now + BALL_COUNTDOWN;
         ball = {((RESOLUTION_WIDTH / 2) - (BOX_WIDTH / 2)), ((RESOLUTION_HEIGHT / 2) - (BOX_WIDTH / 2)), BOX_WIDTH, BOX_WIDTH};
       } else if (SDL_HasIntersection(&ball, &rightPaddle)) {
         ball.x = rightPaddle.x - ball.w;
