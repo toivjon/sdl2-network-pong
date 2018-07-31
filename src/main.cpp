@@ -44,7 +44,7 @@ const auto BALL_COUNTDOWN = 1000;
 // ==================
 
 const SDL_Rect TOP_WALL = { 0, 0, RESOLUTION_WIDTH, BOX_WIDTH };
-const SDL_Rect BTM_WALL = { 0, (RESOLUTION_HEIGHT - BOX_WIDTH), RESOLUTION_WIDTH, BOX_WIDTH };
+const SDL_Rect BOTTOM_WALL = { 0, (RESOLUTION_HEIGHT - BOX_WIDTH), RESOLUTION_WIDTH, BOX_WIDTH };
 const SDL_Rect LEFT_GOAL = { -1000, 0, (1000 - BOX_WIDTH), RESOLUTION_HEIGHT };
 const SDL_Rect RIGHT_GOAL = { RESOLUTION_WIDTH + BOX_WIDTH, 0, 1000, RESOLUTION_HEIGHT };
 
@@ -336,21 +336,21 @@ int main(int argc, char* argv[]) {
     // check that the left paddle stays between the top and bottom walls.
     if (SDL_HasIntersection(&leftPaddle, &TOP_WALL)) {
       leftPaddle.y = (TOP_WALL.y + TOP_WALL.h);
-    } else if (SDL_HasIntersection(&leftPaddle, &BTM_WALL)) {
-      leftPaddle.y = (BTM_WALL.y - PADDLE_HEIGHT);
+    } else if (SDL_HasIntersection(&leftPaddle, &BOTTOM_WALL)) {
+      leftPaddle.y = (BOTTOM_WALL.y - PADDLE_HEIGHT);
     }
 
     // check that the right paddle stays between the top and bottom walls.
     if (SDL_HasIntersection(&rightPaddle, &TOP_WALL)) {
       rightPaddle.y = (TOP_WALL.y + TOP_WALL.h);
-    } else if (SDL_HasIntersection(&rightPaddle, &BTM_WALL)) {
-      rightPaddle.y = (BTM_WALL.y - PADDLE_HEIGHT);
+    } else if (SDL_HasIntersection(&rightPaddle, &BOTTOM_WALL)) {
+      rightPaddle.y = (BOTTOM_WALL.y - PADDLE_HEIGHT);
     }
 
     // check whether the ball hits walls.
     if (ballDirectionY == DIRECTION_DOWN) {
-      if (SDL_HasIntersection(&ball, &BTM_WALL)) {
-        ball.y = BTM_WALL.y - ball.h;
+      if (SDL_HasIntersection(&ball, &BOTTOM_WALL)) {
+        ball.y = BOTTOM_WALL.y - ball.h;
         ballDirectionY *= -1;
       }
     } else {
@@ -402,7 +402,7 @@ int main(int argc, char* argv[]) {
     // render all visible game objects on the backbuffer.
     SDL_SetRenderDrawColor(renderer, 0xff, 0xff, 0xff, 0xff);
     SDL_RenderFillRect(renderer, &TOP_WALL);
-    SDL_RenderFillRect(renderer, &BTM_WALL);
+    SDL_RenderFillRect(renderer, &BOTTOM_WALL);
     SDL_RenderFillRect(renderer, &leftPaddle);
     SDL_RenderFillRect(renderer, &rightPaddle);
     SDL_RenderFillRect(renderer, &ball);
