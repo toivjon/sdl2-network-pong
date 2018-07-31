@@ -144,6 +144,14 @@ inline std::vector<std::string> split(const std::string& s, char delimiter)
    return tokens;
 }
 
+enum class EventType : uint8_t {
+  MOVE_RIGHT_PADDLE = 1,
+  MOVE_LEFT_PADDLE  = 2,
+  MOVE_BALL         = 3,
+  SCORE_RIGHT       = 4,
+  SCORE_LEFT        = 5
+};
+
 int main(int argc, char* argv[]) {
   // parse command line arguments.
   auto isServer = (argc == 1);
@@ -230,11 +238,7 @@ int main(int argc, char* argv[]) {
   // variables used within the ingame logic.
   auto now = millis() + clockOffset;
   auto paddleDirection = DIRECTION_NONE;
-  auto sendLeftPaddleStateRequired = false;
-  auto sendRightPaddleStateRequired = false;
-  auto sendBallStateRequired = false;
-  auto sendGoalToLeftPlayer = false;
-  auto sendGoalToRightPlayer = false;
+  std::vector<EventType> eventQueue;
   auto nextUpdateMs = millis() + NETWORK_SEND_INTERVAL;
   auto ballDirectionX = randomDirection();
   auto ballDirectionY = randomDirection();
@@ -321,40 +325,42 @@ int main(int argc, char* argv[]) {
 
     // send necessary update events to the remote connection.
     if (now >= nextUpdateMs) {
-      if (sendLeftPaddleStateRequired) {
-        std::string data = serialize("lp", leftPaddle);
-        result = SDLNet_TCP_Send(socket, data.c_str(), data.size());
-        SDL_assert(result == (int)data.size());
-        sendLeftPaddleStateRequired = false;
+      for (auto& event : eventQueue) {
+        switch (event) {
+          case EventType::MOVE_BALL: {
+            std::string data = serialize("b", ball);
+            result = SDLNet_TCP_Send(socket, data.c_str(), data.size());
+            SDL_assert(result == (int)data.size());
+            break;
+          }
+          case EventType::MOVE_LEFT_PADDLE: {
+            std::string data = serialize("lp", leftPaddle);
+            result = SDLNet_TCP_Send(socket, data.c_str(), data.size());
+            SDL_assert(result == (int)data.size());
+            break;
+          }
+          case EventType::MOVE_RIGHT_PADDLE: {
+            std::string data = serialize("rp", rightPaddle);
+            result = SDLNet_TCP_Send(socket, data.c_str(), data.size());
+            SDL_assert(result == (int)data.size());
+            break;
+          }
+          case EventType::SCORE_LEFT: {
+            std::string data = serialize("gl");
+            result = SDLNet_TCP_Send(socket, data.c_str(), data.size());
+            SDL_assert(result == (int)data.size());
+            break;
+          }
+          case EventType::SCORE_RIGHT: {
+            std::string data = serialize("gr");
+            result = SDLNet_TCP_Send(socket, data.c_str(), data.size());
+            SDL_assert(result == (int)data.size());
+            break;
+          }
+        }
       }
-      if (sendRightPaddleStateRequired) {
-        std::string data = serialize("rp", rightPaddle);
-        result = SDLNet_TCP_Send(socket, data.c_str(), data.size());
-        SDL_assert(result == (int)data.size());
-        sendRightPaddleStateRequired = false;
-      }
-      if (sendBallStateRequired) {
-        std::string data = serialize("b", ball);
-        result = SDLNet_TCP_Send(socket, data.c_str(), data.size());
-        SDL_assert(result == (int)data.size());
-        sendBallStateRequired = false;
-      }
+      eventQueue.clear();
       nextUpdateMs = now + NETWORK_SEND_INTERVAL;
-    }
-
-    // check whether we need to indicate client about a goal.
-    if (isServer) {
-      if (sendGoalToLeftPlayer) {
-        std::string data = serialize("gl");
-        result = SDLNet_TCP_Send(socket, data.c_str(), data.size());
-        SDL_assert(result == (int)data.size());
-        sendGoalToLeftPlayer = false;
-      } else if (sendGoalToRightPlayer) {
-        std::string data = serialize("gr");
-        result = SDLNet_TCP_Send(socket, data.c_str(), data.size());
-        SDL_assert(result == (int)data.size());
-        sendGoalToRightPlayer = false;
-      }
     }
 
     // move the controlled paddle when required.
@@ -362,10 +368,10 @@ int main(int argc, char* argv[]) {
       auto movement = PADDLE_VELOCITY * paddleDirection;
       if (isServer) {
         leftPaddle.y += movement;
-        sendLeftPaddleStateRequired = true;
+        eventQueue.push_back(EventType::MOVE_LEFT_PADDLE);
       } else {
         rightPaddle.y += movement;
-        sendRightPaddleStateRequired = true;
+        eventQueue.push_back(EventType::MOVE_RIGHT_PADDLE);
       }
     }
 
@@ -373,7 +379,7 @@ int main(int argc, char* argv[]) {
     if (isServer && now >= ballCountdown) {
       ball.x += ballDirectionX * ballVelocity;
       ball.y += ballDirectionY * ballVelocity;
-      sendBallStateRequired = true;
+      eventQueue.push_back(EventType::MOVE_BALL);
     }
 
     // check that the left paddle stays between the top and bottom walls.
@@ -408,7 +414,7 @@ int main(int argc, char* argv[]) {
       if (isServer && SDL_HasIntersection(&ball, &LEFT_GOAL)) {
         rightPlayerScore++;
         printf("Right player score: %d\n", rightPlayerScore);
-        sendGoalToRightPlayer = true;
+        eventQueue.push_back(EventType::SCORE_RIGHT);
         ballDirectionX = randomDirection();
         ballDirectionY = randomDirection();
         ballVelocity = BALL_INITIAL_VELOCITY;
@@ -424,7 +430,7 @@ int main(int argc, char* argv[]) {
       if (isServer && SDL_HasIntersection(&ball, &RIGHT_GOAL)) {
         leftPlayerScore++;
         printf("Left player score: %d\n", leftPlayerScore);
-        sendGoalToLeftPlayer = true;
+        eventQueue.push_back(EventType::SCORE_LEFT);
         ballDirectionX = randomDirection();
         ballDirectionY = randomDirection();
         ballVelocity = BALL_INITIAL_VELOCITY;
