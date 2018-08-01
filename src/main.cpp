@@ -113,20 +113,18 @@ inline int randomDirection() {
 
 inline std::string serialize(const std::string& id, const SDL_Rect& rect) {
   std::string data;
-  data.append("#");
   data.append(id);
   data.append(" ");
   data.append(std::to_string(rect.x));
   data.append(" ");
   data.append(std::to_string(rect.y));
-  return data;
+  return "[" + std::to_string(data.size()) + "]" + data;
 }
 
 inline std::string serialize(const std::string& id) {
   std::string data;
-  data.append("#");
   data.append(id);
-  return data;
+  return "[" + std::to_string(data.size()) + "]" + data;
 }
 
 inline int64_t millis() {
@@ -285,6 +283,7 @@ int main(int argc, char* argv[]) {
     }
 
     // handle activity appearing at the network socket level.
+    std::string tempBuffer;
     auto socketSetState = SDLNet_CheckSockets(socketSet, 0);
     if (socketSetState == -1) {
       printf("SDLNet_CheckSocket: %s\n", SDLNet_GetError());
@@ -299,29 +298,43 @@ int main(int argc, char* argv[]) {
       } else {
         // TODO handle the received message.
         buffer[receivedCount] = '\0';
-        printf("recv: %s\n", buffer); // TODO remove...
-        auto events = split(buffer, '#');
+        auto events = split(tempBuffer + buffer, '[');
         for (const auto& event : events) {
           if (event.empty() == false) {
-            auto parts = split(event, ' ');
-            if (parts[0] == "gl") {
-              leftPlayerScore++;
-              printf("Left player score: %d\n", leftPlayerScore);
-            } else if (parts[0] == "gr") {
-              rightPlayerScore++;
-              printf("Right player score: %d\n", rightPlayerScore);
-            } else if (parts[0] == "rp") {
-              rightPaddle.y = stod(parts[2]);
-            } else if (parts[0] == "lp") {
-              leftPaddle.y = stod(parts[2]);
-            } else if (parts[0] == "b") {
-              ball.x = stod(parts[1]);
-              ball.y = stod(parts[2]);
+            auto sizeEnd = event.find_first_of(']');
+            if (sizeEnd == std::string::npos) {
+              tempBuffer.append("[");
+              tempBuffer.append(event);
+              break;
+            } else {
+              auto size = stod(event.substr(0, sizeEnd));
+              if (size > (event.size() - sizeEnd)) {
+                tempBuffer.append("[");
+                tempBuffer.append(event);
+                break;
+              } else {
+                auto parts = split(event.substr(sizeEnd+1), ' ');
+                if (parts[0] == "gl") {
+                  leftPlayerScore++;
+                  printf("Left player score: %d\n", leftPlayerScore);
+                } else if (parts[0] == "gr") {
+                  rightPlayerScore++;
+                  printf("Right player score: %d\n", rightPlayerScore);
+                } else if (parts[0] == "rp") {
+                  rightPaddle.y = stod(parts[2]);
+                } else if (parts[0] == "lp") {
+                  leftPaddle.y = stod(parts[2]);
+                } else if (parts[0] == "b") {
+                  ball.x = stod(parts[1]);
+                  ball.y = stod(parts[2]);
+                }
+              }
             }
           }
         }
       }
     }
+    tempBuffer.clear();
 
     // send necessary update events to the remote connection.
     if (now >= nextUpdateMs) {
