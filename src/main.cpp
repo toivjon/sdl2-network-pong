@@ -419,8 +419,8 @@ int main(int argc, char* argv[]) {
 
     // move the ball.
     if (isServer && sNow >= sBallCountdown) {
-      sBall.x += sBallDirectionX * sBallVelocity;
-      sBall.y += sBallDirectionY * sBallVelocity;
+      sBall.x += (sBallDirectionX * sBallVelocity);
+      sBall.y += (sBallDirectionY * sBallVelocity);
       sEventQueue.push_back(EventType::MOVE_BALL);
     }
 
@@ -441,12 +441,12 @@ int main(int argc, char* argv[]) {
     // check whether the ball hits walls.
     if (sBallDirectionY == DIRECTION_DOWN) {
       if (SDL_HasIntersection(&sBall, &BOTTOM_WALL)) {
-        sBall.y = BOTTOM_WALL.y - sBall.h;
+        sBall.y = (BOTTOM_WALL.y - sBall.h);
         sBallDirectionY *= -1;
       }
     } else {
       if (SDL_HasIntersection(&sBall, &TOP_WALL)) {
-        sBall.y = TOP_WALL.y + TOP_WALL.h;
+        sBall.y = (TOP_WALL.y + TOP_WALL.h);
         sBallDirectionY *= -1;
       }
     }
