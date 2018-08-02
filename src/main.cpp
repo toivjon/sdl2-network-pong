@@ -71,6 +71,13 @@ const SDL_Rect CENTER_LINE[15] = {
   { ((RESOLUTION_WIDTH / 2) - (BOX_WIDTH / 2)), static_cast<int>(BOX_WIDTH + (14 * 1.93f * BOX_WIDTH)), BOX_WIDTH, BOX_WIDTH },
 };
 
+// the starting position of the left paddle.
+const SDL_Rect LEFT_PADDLE_START = { PADDLE_EDGE_OFFSET, ((RESOLUTION_HEIGHT / 2) - (PADDLE_HEIGHT / 2)), BOX_WIDTH, PADDLE_HEIGHT};
+// the starting position of the right paddle.
+const SDL_Rect RIGHT_PADDLE_START = { (RESOLUTION_WIDTH - PADDLE_EDGE_OFFSET - BOX_WIDTH), ((RESOLUTION_HEIGHT / 2) - (PADDLE_HEIGHT / 2)), BOX_WIDTH, PADDLE_HEIGHT };
+// the starting position of the ball.
+const SDL_Rect BALL_START = { ((RESOLUTION_WIDTH / 2) - (BOX_WIDTH / 2)), ((RESOLUTION_HEIGHT / 2) - (BOX_WIDTH / 2)), BOX_WIDTH, BOX_WIDTH };
+
 // the width for the score indicator numbers.
 const auto SCORE_WIDTH = RESOLUTION_WIDTH / 10;
 // the height for the score indicator numbers.
@@ -214,32 +221,6 @@ const std::vector<std::vector<SDL_Rect>> RIGHT_NUMBERS = {
     { RIGHT_SCORE_X, SCORE_Y + SCORE_HEIGHT - SCORE_THICKNESS, SCORE_WIDTH, SCORE_THICKNESS },
     { RIGHT_SCORE_X, SCORE_Y + SCORE_HALF_HEIGHT - SCORE_HALF_THICKNESS, SCORE_WIDTH, SCORE_THICKNESS},
   }
-};
-
-// ===================
-// = Dynamic Objects =
-// ===================
-
-// the starting position of the left paddle.
-const SDL_Rect LEFT_PADDLE_START = {
-  PADDLE_EDGE_OFFSET,
-  ((RESOLUTION_HEIGHT / 2) - (PADDLE_HEIGHT / 2)),
-  BOX_WIDTH,
-  PADDLE_HEIGHT
-};
-// the starting position of the right paddle.
-const SDL_Rect RIGHT_PADDLE_START = {
-  (RESOLUTION_WIDTH - PADDLE_EDGE_OFFSET - BOX_WIDTH),
-  ((RESOLUTION_HEIGHT / 2) - (PADDLE_HEIGHT / 2)),
-  BOX_WIDTH,
-  PADDLE_HEIGHT
-};
-// the starting position of the ball.
-const SDL_Rect BALL_START = {
-  ((RESOLUTION_WIDTH / 2) - (BOX_WIDTH / 2)),
-  ((RESOLUTION_HEIGHT / 2) - (BOX_WIDTH / 2)),
-  BOX_WIDTH,
-  BOX_WIDTH
 };
 
 // =======================
