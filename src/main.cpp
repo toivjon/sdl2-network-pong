@@ -3,6 +3,7 @@
 #include <SDL/SDL.h>
 #include <SDL/SDL_net.h>
 
+#include <array>
 #include <chrono>
 #include <cstdio>
 #include <random>
@@ -41,6 +42,8 @@ const auto BALL_INITIAL_VELOCITY = 2;
 const auto BALL_MAX_VELOCITY = 8;
 const auto BALL_COUNTDOWN = 1000;
 const auto BALL_VELOCITY_INCREMENT = 1;
+
+const auto MAXIMUM_POINTS = 10;
 
 // ==================
 // = Static Objects =
@@ -144,6 +147,11 @@ enum class EventType : uint8_t {
   SCORE_LEFT        = 5
 };
 
+enum class Player : uint8_t {
+  LEFT  = 0,
+  RIGHT = 1
+};
+
 // ==================
 // = Dynamic Values =
 // ==================
@@ -152,14 +160,13 @@ static auto sBallDirectionX = DIRECTION_NONE;
 static auto sBallDirectionY = DIRECTION_NONE;
 static auto sBallVelocity = BALL_INITIAL_VELOCITY;
 static auto sBallCountdown = millis() + BALL_COUNTDOWN;
-static auto sLeftPlayerScore = 0;
-static auto sRightPlayerScore = 0;
 static auto sPaddleDirection = DIRECTION_NONE;
 static auto sNextUpdateMs = millis() + NETWORK_SEND_INTERVAL;
 static auto sLeftPaddle = LEFT_PADDLE_START;
 static auto sRightPaddle = RIGHT_PADDLE_START;
 static auto sBall = BALL_START;
 static auto sNow = 0ll;
+static std::array<int, 2> sScores = { 0, 0 };
 static std::vector<EventType> sEventQueue;
 
 // ====================
@@ -199,6 +206,20 @@ inline void increaseBallVelocity() {
   sBallVelocity += BALL_VELOCITY_INCREMENT;
   sBallVelocity = std::min(BALL_MAX_VELOCITY, sBallVelocity);
   printf("increaseBallVelocity [new-velocity: %d]\n", sBallVelocity);
+}
+
+// ============================================================================
+// Increment the score for the target player. This function does grant a single
+// point for the target player. Function also ensures the maximum point limit.
+// @param player The target player.
+// ============================================================================
+inline void incrementScore(Player player) {
+  printf("incrementScore [%s]\n", (player == Player::LEFT ? "left" : "right"));
+
+  // increase the score for the target player.
+  sScores[(uint8_t)player]++;
+  sScores[(uint8_t)player] = std::min(MAXIMUM_POINTS, sScores[(uint8_t)player]);
+  printf("scores are now [%d - %d]\n", sScores[0], sScores[1]);
 }
 
 int main(int argc, char* argv[]) {
@@ -356,11 +377,9 @@ int main(int argc, char* argv[]) {
               } else {
                 auto parts = split(event.substr(sizeEnd+1), ' ');
                 if (parts[0] == "gl") {
-                  sLeftPlayerScore++;
-                  printf("Left player score: %d\n", sLeftPlayerScore);
+                  incrementScore(Player::LEFT);
                 } else if (parts[0] == "gr") {
-                  sRightPlayerScore++;
-                  printf("Right player score: %d\n", sRightPlayerScore);
+                  incrementScore(Player::RIGHT);
                 } else if (parts[0] == "rp") {
                   sRightPaddle.y = stod(parts[2]);
                 } else if (parts[0] == "lp") {
@@ -466,8 +485,7 @@ int main(int argc, char* argv[]) {
     // check whether the ball hits goals or paddles.
     if (sBallDirectionX == DIRECTION_LEFT) {
       if (isServer && SDL_HasIntersection(&sBall, &LEFT_GOAL)) {
-        sRightPlayerScore++;
-        printf("Right player score: %d\n", sRightPlayerScore);
+        incrementScore(Player::RIGHT);
         sEventQueue.push_back(EventType::SCORE_RIGHT);
         resetRound();
       } else if (SDL_HasIntersection(&sBall, &sLeftPaddle)) {
@@ -477,8 +495,7 @@ int main(int argc, char* argv[]) {
       }
     } else {
       if (isServer && SDL_HasIntersection(&sBall, &RIGHT_GOAL)) {
-        sLeftPlayerScore++;
-        printf("Left player score: %d\n", sLeftPlayerScore);
+        incrementScore(Player::LEFT);
         sEventQueue.push_back(EventType::SCORE_LEFT);
         resetRound();
       } else if (SDL_HasIntersection(&sBall, &sRightPaddle)) {
