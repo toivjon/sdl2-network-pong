@@ -93,13 +93,6 @@ const SDL_Rect BALL_START = {
   BOX_WIDTH
 };
 
-// the current position of the left paddle.
-static SDL_Rect leftPaddle = LEFT_PADDLE_START;
-// the current position of the right paddle.
-static SDL_Rect rightPaddle = RIGHT_PADDLE_START;
-// the current position of the ball.
-static SDL_Rect ball = BALL_START;
-
 // =======================
 // = RANDOM DISTRIBUTION =
 // =======================
@@ -149,6 +142,52 @@ enum class EventType : uint8_t {
   SCORE_RIGHT       = 4,
   SCORE_LEFT        = 5
 };
+
+// ==================
+// = Dynamic Values =
+// ==================
+
+static auto sBallDirectionX = DIRECTION_NONE;
+static auto sBallDirectionY = DIRECTION_NONE;
+static auto sBallVelocity = BALL_INITIAL_VELOCITY;
+static auto sBallCountdown = millis() + BALL_COUNTDOWN;
+static auto sLeftPlayerScore = 0;
+static auto sRightPlayerScore = 0;
+static auto sPaddleDirection = DIRECTION_NONE;
+static auto sNextUpdateMs = millis() + NETWORK_SEND_INTERVAL;
+static auto sLeftPaddle = LEFT_PADDLE_START;
+static auto sRightPaddle = RIGHT_PADDLE_START;
+static auto sBall = BALL_START;
+static auto sNow = 0ll;
+static std::vector<EventType> sEventQueue;
+
+// ====================
+// = Action Functions =
+// ====================
+
+// =========================================================================
+// Reset the round by forcing dynamic objects back to original positions. It
+// also reset all incremented velocities and countdown timers to ensure that
+// each round is being played in a consistent manner.
+// =========================================================================
+inline void resetRound() {
+  printf("resetRound\n");
+
+  // randomize a new direction for the ball.
+  sBallDirectionX = randomDirection();
+  sBallDirectionY = randomDirection();
+
+  // reset ball velocity to get rid of possible increments.
+  sBallVelocity = BALL_INITIAL_VELOCITY;
+
+  // reset ball and paddle positions.
+  sBall = BALL_START;
+  sLeftPaddle = LEFT_PADDLE_START;
+  sRightPaddle = RIGHT_PADDLE_START;
+
+  // add a small countdown to delay the ball launch.
+  sBallCountdown = sNow + BALL_COUNTDOWN;
+}
 
 int main(int argc, char* argv[]) {
   // parse command line arguments.
@@ -233,23 +272,13 @@ int main(int argc, char* argv[]) {
     clockOffset = delta + latency;
   }
 
-  // variables used within the ingame logic.
-  auto now = millis() + clockOffset;
-  auto paddleDirection = DIRECTION_NONE;
-  std::vector<EventType> eventQueue;
-  auto nextUpdateMs = millis() + NETWORK_SEND_INTERVAL;
-  auto ballDirectionX = randomDirection();
-  auto ballDirectionY = randomDirection();
-  auto ballVelocity = BALL_INITIAL_VELOCITY;
-  auto leftPlayerScore = 0;
-  auto rightPlayerScore = 0;
-  auto ballCountdown = millis() + BALL_COUNTDOWN;
+  resetRound();
 
   // start the main loop.
   auto isRunning = true;
   SDL_Event event;
   while (isRunning) {
-    now = millis();
+    sNow = millis() + clockOffset;
     while(SDL_PollEvent(&event) != 0) {
       switch (event.type) {
         case SDL_QUIT:
@@ -258,23 +287,23 @@ int main(int argc, char* argv[]) {
         case SDL_KEYDOWN:
           switch (event.key.keysym.sym) {
             case SDLK_UP:
-              paddleDirection = DIRECTION_UP;
+              sPaddleDirection = DIRECTION_UP;
               break;
             case SDLK_DOWN:
-              paddleDirection = DIRECTION_DOWN;
+              sPaddleDirection = DIRECTION_DOWN;
               break;
           }
           break;
         case SDL_KEYUP:
           switch (event.key.keysym.sym) {
             case SDLK_UP:
-              if (paddleDirection == DIRECTION_UP) {
-                paddleDirection = DIRECTION_NONE;
+              if (sPaddleDirection == DIRECTION_UP) {
+                sPaddleDirection = DIRECTION_NONE;
               }
               break;
             case SDLK_DOWN:
-              if (paddleDirection == DIRECTION_DOWN) {
-                paddleDirection = DIRECTION_NONE;
+              if (sPaddleDirection == DIRECTION_DOWN) {
+                sPaddleDirection = DIRECTION_NONE;
               }
               break;
           }
@@ -315,18 +344,18 @@ int main(int argc, char* argv[]) {
               } else {
                 auto parts = split(event.substr(sizeEnd+1), ' ');
                 if (parts[0] == "gl") {
-                  leftPlayerScore++;
-                  printf("Left player score: %d\n", leftPlayerScore);
+                  sLeftPlayerScore++;
+                  printf("Left player score: %d\n", sLeftPlayerScore);
                 } else if (parts[0] == "gr") {
-                  rightPlayerScore++;
-                  printf("Right player score: %d\n", rightPlayerScore);
+                  sRightPlayerScore++;
+                  printf("Right player score: %d\n", sRightPlayerScore);
                 } else if (parts[0] == "rp") {
-                  rightPaddle.y = stod(parts[2]);
+                  sRightPaddle.y = stod(parts[2]);
                 } else if (parts[0] == "lp") {
-                  leftPaddle.y = stod(parts[2]);
+                  sLeftPaddle.y = stod(parts[2]);
                 } else if (parts[0] == "b") {
-                  ball.x = stod(parts[1]);
-                  ball.y = stod(parts[2]);
+                  sBall.x = stod(parts[1]);
+                  sBall.y = stod(parts[2]);
                 }
               }
             }
@@ -337,23 +366,23 @@ int main(int argc, char* argv[]) {
     tempBuffer.clear();
 
     // send necessary update events to the remote connection.
-    if (now >= nextUpdateMs) {
-      for (auto& event : eventQueue) {
+    if (sNow >= sNextUpdateMs) {
+      for (auto& event : sEventQueue) {
         switch (event) {
           case EventType::MOVE_BALL: {
-            std::string data = serialize("b", ball);
+            std::string data = serialize("b", sBall);
             result = SDLNet_TCP_Send(socket, data.c_str(), data.size());
             SDL_assert(result == (int)data.size());
             break;
           }
           case EventType::MOVE_LEFT_PADDLE: {
-            std::string data = serialize("lp", leftPaddle);
+            std::string data = serialize("lp", sLeftPaddle);
             result = SDLNet_TCP_Send(socket, data.c_str(), data.size());
             SDL_assert(result == (int)data.size());
             break;
           }
           case EventType::MOVE_RIGHT_PADDLE: {
-            std::string data = serialize("rp", rightPaddle);
+            std::string data = serialize("rp", sRightPaddle);
             result = SDLNet_TCP_Send(socket, data.c_str(), data.size());
             SDL_assert(result == (int)data.size());
             break;
@@ -372,88 +401,80 @@ int main(int argc, char* argv[]) {
           }
         }
       }
-      eventQueue.clear();
-      nextUpdateMs = now + NETWORK_SEND_INTERVAL;
+      sEventQueue.clear();
+      sNextUpdateMs = sNow + NETWORK_SEND_INTERVAL;
     }
 
     // move the controlled paddle when required.
-    if (paddleDirection != DIRECTION_NONE) {
-      auto movement = PADDLE_VELOCITY * paddleDirection;
+    if (sPaddleDirection != DIRECTION_NONE) {
+      auto movement = PADDLE_VELOCITY * sPaddleDirection;
       if (isServer) {
-        leftPaddle.y += movement;
-        eventQueue.push_back(EventType::MOVE_LEFT_PADDLE);
+        sLeftPaddle.y += movement;
+        sEventQueue.push_back(EventType::MOVE_LEFT_PADDLE);
       } else {
-        rightPaddle.y += movement;
-        eventQueue.push_back(EventType::MOVE_RIGHT_PADDLE);
+        sRightPaddle.y += movement;
+        sEventQueue.push_back(EventType::MOVE_RIGHT_PADDLE);
       }
     }
 
     // move the ball.
-    if (isServer && now >= ballCountdown) {
-      ball.x += ballDirectionX * ballVelocity;
-      ball.y += ballDirectionY * ballVelocity;
-      eventQueue.push_back(EventType::MOVE_BALL);
+    if (isServer && sNow >= sBallCountdown) {
+      sBall.x += sBallDirectionX * sBallVelocity;
+      sBall.y += sBallDirectionY * sBallVelocity;
+      sEventQueue.push_back(EventType::MOVE_BALL);
     }
 
     // check that the left paddle stays between the top and bottom walls.
-    if (SDL_HasIntersection(&leftPaddle, &TOP_WALL)) {
-      leftPaddle.y = (TOP_WALL.y + TOP_WALL.h);
-    } else if (SDL_HasIntersection(&leftPaddle, &BOTTOM_WALL)) {
-      leftPaddle.y = (BOTTOM_WALL.y - PADDLE_HEIGHT);
+    if (SDL_HasIntersection(&sLeftPaddle, &TOP_WALL)) {
+      sLeftPaddle.y = (TOP_WALL.y + TOP_WALL.h);
+    } else if (SDL_HasIntersection(&sLeftPaddle, &BOTTOM_WALL)) {
+      sLeftPaddle.y = (BOTTOM_WALL.y - PADDLE_HEIGHT);
     }
 
     // check that the right paddle stays between the top and bottom walls.
-    if (SDL_HasIntersection(&rightPaddle, &TOP_WALL)) {
-      rightPaddle.y = (TOP_WALL.y + TOP_WALL.h);
-    } else if (SDL_HasIntersection(&rightPaddle, &BOTTOM_WALL)) {
-      rightPaddle.y = (BOTTOM_WALL.y - PADDLE_HEIGHT);
+    if (SDL_HasIntersection(&sRightPaddle, &TOP_WALL)) {
+      sRightPaddle.y = (TOP_WALL.y + TOP_WALL.h);
+    } else if (SDL_HasIntersection(&sRightPaddle, &BOTTOM_WALL)) {
+      sRightPaddle.y = (BOTTOM_WALL.y - PADDLE_HEIGHT);
     }
 
     // check whether the ball hits walls.
-    if (ballDirectionY == DIRECTION_DOWN) {
-      if (SDL_HasIntersection(&ball, &BOTTOM_WALL)) {
-        ball.y = BOTTOM_WALL.y - ball.h;
-        ballDirectionY *= -1;
+    if (sBallDirectionY == DIRECTION_DOWN) {
+      if (SDL_HasIntersection(&sBall, &BOTTOM_WALL)) {
+        sBall.y = BOTTOM_WALL.y - sBall.h;
+        sBallDirectionY *= -1;
       }
     } else {
-      if (SDL_HasIntersection(&ball, &TOP_WALL)) {
-        ball.y = TOP_WALL.y + TOP_WALL.h;
-        ballDirectionY *= -1;
+      if (SDL_HasIntersection(&sBall, &TOP_WALL)) {
+        sBall.y = TOP_WALL.y + TOP_WALL.h;
+        sBallDirectionY *= -1;
       }
     }
 
     // check whether the ball hits goals or paddles.
-    if (ballDirectionX == DIRECTION_LEFT) {
-      if (isServer && SDL_HasIntersection(&ball, &LEFT_GOAL)) {
-        rightPlayerScore++;
-        printf("Right player score: %d\n", rightPlayerScore);
-        eventQueue.push_back(EventType::SCORE_RIGHT);
-        ballDirectionX = randomDirection();
-        ballDirectionY = randomDirection();
-        ballVelocity = BALL_INITIAL_VELOCITY;
-        ballCountdown = now + BALL_COUNTDOWN;
-        ball = BALL_START;
-      } else if (SDL_HasIntersection(&ball, &leftPaddle)) {
-        ball.x = leftPaddle.x + leftPaddle.w;
-        ballDirectionX *= -1;
-        ballVelocity += 1;
-        ballVelocity = std::min(BALL_MAX_VELOCITY, ballVelocity);
+    if (sBallDirectionX == DIRECTION_LEFT) {
+      if (isServer && SDL_HasIntersection(&sBall, &LEFT_GOAL)) {
+        sRightPlayerScore++;
+        printf("Right player score: %d\n", sRightPlayerScore);
+        sEventQueue.push_back(EventType::SCORE_RIGHT);
+        resetRound();
+      } else if (SDL_HasIntersection(&sBall, &sLeftPaddle)) {
+        sBall.x = sLeftPaddle.x + sLeftPaddle.w;
+        sBallDirectionX *= -1;
+        sBallVelocity += 1;
+        sBallVelocity = std::min(BALL_MAX_VELOCITY, sBallVelocity);
       }
     } else {
-      if (isServer && SDL_HasIntersection(&ball, &RIGHT_GOAL)) {
-        leftPlayerScore++;
-        printf("Left player score: %d\n", leftPlayerScore);
-        eventQueue.push_back(EventType::SCORE_LEFT);
-        ballDirectionX = randomDirection();
-        ballDirectionY = randomDirection();
-        ballVelocity = BALL_INITIAL_VELOCITY;
-        ballCountdown = now + BALL_COUNTDOWN;
-        ball = BALL_START;
-      } else if (SDL_HasIntersection(&ball, &rightPaddle)) {
-        ball.x = rightPaddle.x - ball.w;
-        ballDirectionX *= -1;
-        ballVelocity += 1;
-        ballVelocity = std::min(BALL_MAX_VELOCITY, ballVelocity);
+      if (isServer && SDL_HasIntersection(&sBall, &RIGHT_GOAL)) {
+        sLeftPlayerScore++;
+        printf("Left player score: %d\n", sLeftPlayerScore);
+        sEventQueue.push_back(EventType::SCORE_LEFT);
+        resetRound();
+      } else if (SDL_HasIntersection(&sBall, &sRightPaddle)) {
+        sBall.x = sRightPaddle.x - sBall.w;
+        sBallDirectionX *= -1;
+        sBallVelocity += 1;
+        sBallVelocity = std::min(BALL_MAX_VELOCITY, sBallVelocity);
       }
     }
 
@@ -466,9 +487,9 @@ int main(int argc, char* argv[]) {
     SDL_RenderFillRects(renderer, &CENTER_LINE[0], 15);
     SDL_RenderFillRect(renderer, &TOP_WALL);
     SDL_RenderFillRect(renderer, &BOTTOM_WALL);
-    SDL_RenderFillRect(renderer, &leftPaddle);
-    SDL_RenderFillRect(renderer, &rightPaddle);
-    SDL_RenderFillRect(renderer, &ball);
+    SDL_RenderFillRect(renderer, &sLeftPaddle);
+    SDL_RenderFillRect(renderer, &sRightPaddle);
+    SDL_RenderFillRect(renderer, &sBall);
 
     // swap backbuffer to front and vice versa.
     SDL_RenderPresent(renderer);
