@@ -40,6 +40,7 @@ const auto PADDLE_EDGE_OFFSET = (RESOLUTION_HEIGHT / 20);
 const auto BALL_INITIAL_VELOCITY = 2;
 const auto BALL_MAX_VELOCITY = 8;
 const auto BALL_COUNTDOWN = 1000;
+const auto BALL_VELOCITY_INCREMENT = 1;
 
 // ==================
 // = Static Objects =
@@ -187,6 +188,17 @@ inline void resetRound() {
 
   // add a small countdown to delay the ball launch.
   sBallCountdown = sNow + BALL_COUNTDOWN;
+}
+
+// ============================================================================
+// Increase the ball velocity by adding a velocity increment to the velocity.
+// Note that this function also ensures that the maximum velocity is followed.
+// ============================================================================
+inline void increaseBallVelocity() {
+  // increase the ball's velocity and honor the maximum limit.
+  sBallVelocity += BALL_VELOCITY_INCREMENT;
+  sBallVelocity = std::min(BALL_MAX_VELOCITY, sBallVelocity);
+  printf("increaseBallVelocity [new-velocity: %d]\n", sBallVelocity);
 }
 
 int main(int argc, char* argv[]) {
@@ -459,10 +471,9 @@ int main(int argc, char* argv[]) {
         sEventQueue.push_back(EventType::SCORE_RIGHT);
         resetRound();
       } else if (SDL_HasIntersection(&sBall, &sLeftPaddle)) {
-        sBall.x = sLeftPaddle.x + sLeftPaddle.w;
+        sBall.x = (sLeftPaddle.x + sLeftPaddle.w);
         sBallDirectionX *= -1;
-        sBallVelocity += 1;
-        sBallVelocity = std::min(BALL_MAX_VELOCITY, sBallVelocity);
+        increaseBallVelocity();
       }
     } else {
       if (isServer && SDL_HasIntersection(&sBall, &RIGHT_GOAL)) {
@@ -471,10 +482,9 @@ int main(int argc, char* argv[]) {
         sEventQueue.push_back(EventType::SCORE_LEFT);
         resetRound();
       } else if (SDL_HasIntersection(&sBall, &sRightPaddle)) {
-        sBall.x = sRightPaddle.x - sBall.w;
+        sBall.x = (sRightPaddle.x - sBall.w);
         sBallDirectionX *= -1;
-        sBallVelocity += 1;
-        sBallVelocity = std::min(BALL_MAX_VELOCITY, sBallVelocity);
+        increaseBallVelocity();
       }
     }
 
