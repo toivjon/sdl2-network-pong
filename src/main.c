@@ -27,6 +27,9 @@
 // the size of the single graphical block divided by two.
 #define BOX_HALF (BOX / 2)
 
+// the interval which is used to tick game logics.
+#define TIMESTEP 17
+
 // available network node modes.
 enum Mode { CLIENT, SERVER };
 // available application states.
@@ -337,6 +340,13 @@ static void render()
 }
 
 // ============================================================================
+// update all game objects in a node specific way.
+static void update()
+{
+  // TODO
+}
+
+// ============================================================================
 // get the current tick time without any offsets.
 static int get_ticks_without_offset()
 {
@@ -374,8 +384,17 @@ static void run()
 {
   tcp_start();
   ping_send_request();
+
+  int deltaAccumulator = 0;
+  int ticks = get_ticks_without_offset();
+  int previousTicks = ticks;
   SDL_Event event;
   while (sState == RUNNING) {
+    // get a ticks time and calculate delta.
+    ticks = get_ticks_without_offset();
+    int dt = (ticks - previousTicks);
+    previousTicks = ticks;
+
     // retrieve and handle core SDL events
     while(SDL_PollEvent(&event) != 0) {
       switch (event.type) {
@@ -396,9 +415,16 @@ static void run()
     }
 
     // send ping request with the predefined interval.
-    if (sNextPingTicks <= get_ticks_without_offset()) {
+    if (sNextPingTicks <= ticks) {
       ping_send_request();
       sNextPingTicks = get_ticks_without_offset() + NETWORK_PING_INTERVAL;
+    }
+
+    // update game logics with a fixed framerate.
+    deltaAccumulator += dt;
+    if (deltaAccumulator >= TIMESTEP) {
+      update();
+      deltaAccumulator -= TIMESTEP;
     }
 
     render();
