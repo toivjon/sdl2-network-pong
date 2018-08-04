@@ -560,9 +560,14 @@ static void update(int time)
   int rightUpdated = 0;
   int ballUpdated = 0;
 
-  // update the movement of the left paddle.
+  // update the movement of the left paddle and honour wall boundaries.
   if (sLeftPaddle.owned == 1 && sLeftPaddle.direction_y != NONE) {
     left.y += sLeftPaddle.velocity * sLeftPaddle.direction_y;
+    if (SDL_HasIntersection(&left, &TOP_WALL)) {
+      left.y = (TOP_WALL.y + TOP_WALL.h);
+    } else if (SDL_HasIntersection(&left, &BOTTOM_WALL)) {
+      left.y = (BOTTOM_WALL.y - PADDLE_HEIGHT);
+    }
     state_set(&sLeftPaddle, &left, time);
     leftUpdated = 1;
   }
@@ -570,6 +575,11 @@ static void update(int time)
   // update the movement of the right paddle.
   if (sRightPaddle.owned == 1 && sRightPaddle.direction_y != NONE) {
     right.y += sRightPaddle.velocity * sRightPaddle.direction_y;
+    if (SDL_HasIntersection(&right, &TOP_WALL)) {
+      right.y = (TOP_WALL.y + TOP_WALL.h);
+    } else if (SDL_HasIntersection(&right, &BOTTOM_WALL)) {
+      right.y = (BOTTOM_WALL.y - PADDLE_HEIGHT);
+    }
     state_set(&sRightPaddle, &right, time);
     rightUpdated = 1;
   }
