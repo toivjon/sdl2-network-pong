@@ -10,6 +10,11 @@
 // game resolution height in pixels.
 #define RESOLUTION_HEIGHT 600
 
+// game resolution width divided by two.
+#define RESOLUTION_HALF_WIDTH (RESOLUTION_WIDTH / 2)
+// game resolution height divided by two.
+#define RESOLUTION_HALF_HEIGHT (RESOLUTION_HEIGHT / 2)
+
 // the network port used by the application.
 #define NETWORK_PORT 6666
 // the TCP message buffer size.
@@ -17,10 +22,40 @@
 // the interval to send ping requests.
 #define NETWORK_PING_INTERVAL 1000
 
+// the size of a single graphical block in the scene.
+#define BOX (RESOLUTION_HEIGHT / 30)
+// the size of the single graphical block divided by two.
+#define BOX_HALF (BOX / 2)
+
 // available network node modes.
 enum Mode { CLIENT, SERVER };
 // available application states.
 enum State { RUNNING, STOPPED };
+
+// ============================================================================
+
+// boundaries of the non-moving wall at the top of the scene.
+const SDL_Rect TOP_WALL = { 0, 0, RESOLUTION_WIDTH, BOX };
+// boundaries of the non-moving wall at the bottom of the scene.
+const SDL_Rect BOTTOM_WALL = { 0, RESOLUTION_HEIGHT - BOX, RESOLUTION_WIDTH, BOX };
+// boundaries of the center line containing 15 boxes.
+const SDL_Rect CENTER_LINE[15] = {
+  { RESOLUTION_HALF_WIDTH - BOX_HALF, BOX + (0 * 1.93f * BOX), BOX, BOX},
+  { RESOLUTION_HALF_WIDTH - BOX_HALF, BOX + (1 * 1.93f * BOX), BOX, BOX},
+  { RESOLUTION_HALF_WIDTH - BOX_HALF, BOX + (2 * 1.93f * BOX), BOX, BOX},
+  { RESOLUTION_HALF_WIDTH - BOX_HALF, BOX + (3 * 1.93f * BOX), BOX, BOX},
+  { RESOLUTION_HALF_WIDTH - BOX_HALF, BOX + (4 * 1.93f * BOX), BOX, BOX},
+  { RESOLUTION_HALF_WIDTH - BOX_HALF, BOX + (5 * 1.93f * BOX), BOX, BOX},
+  { RESOLUTION_HALF_WIDTH - BOX_HALF, BOX + (6 * 1.93f * BOX), BOX, BOX},
+  { RESOLUTION_HALF_WIDTH - BOX_HALF, BOX + (7 * 1.93f * BOX), BOX, BOX},
+  { RESOLUTION_HALF_WIDTH - BOX_HALF, BOX + (8 * 1.93f * BOX), BOX, BOX},
+  { RESOLUTION_HALF_WIDTH - BOX_HALF, BOX + (9 * 1.93f * BOX), BOX, BOX},
+  { RESOLUTION_HALF_WIDTH - BOX_HALF, BOX + (10 * 1.93f * BOX), BOX, BOX},
+  { RESOLUTION_HALF_WIDTH - BOX_HALF, BOX + (11 * 1.93f * BOX), BOX, BOX},
+  { RESOLUTION_HALF_WIDTH - BOX_HALF, BOX + (12 * 1.93f * BOX), BOX, BOX},
+  { RESOLUTION_HALF_WIDTH - BOX_HALF, BOX + (13 * 1.93f * BOX), BOX, BOX},
+  { RESOLUTION_HALF_WIDTH - BOX_HALF, BOX + (14 * 1.93f * BOX), BOX, BOX}
+};
 
 // ============================================================================
 
@@ -290,7 +325,12 @@ static void render()
   SDL_SetRenderDrawColor(sRenderer, 0x00, 0x00, 0x00, 0x00);
   SDL_RenderClear(sRenderer);
 
-  // TODO draw objects here...
+  // render all visible game objects on the backbuffer.
+  SDL_SetRenderDrawColor(sRenderer, 0xff, 0xff, 0xff, 0xff);
+  SDL_RenderFillRect(sRenderer, &TOP_WALL);
+  SDL_RenderFillRect(sRenderer, &BOTTOM_WALL);
+  SDL_RenderFillRects(sRenderer, CENTER_LINE, 15);
+  // TODO more to come...
 
   // swap backbuffer to front and vice versa.
   SDL_RenderPresent(sRenderer);
