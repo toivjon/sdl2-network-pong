@@ -29,11 +29,57 @@
 
 // the interval which is used to tick game logics.
 #define TIMESTEP 17
+// the maximum size of the state cache.
+#define STATE_CACHE_SIZE 10
+
+// the height for both paddles at the sides of the scene.
+#define PADDLE_HEIGHT (RESOLUTION_HEIGHT / 6)
+// the height for both paddles divided by two.
+#define PADDLE_HALF_HEIGHT (PADDLE_HEIGHT / 2)
+// the width for both paddles at the sides of the scene.
+#define PADDLE_WIDTH BOX
+// the amount of offset between paddle and the side of the scene.
+#define PADDLE_EDGE_OFFSET (RESOLUTION_HEIGHT / 20)
+// the movement velocity for the paddles.
+#define PADDLE_VELOCITY (RESOLUTION_WIDTH / 100)
+
+// the width of the ball.
+#define BALL_WIDTH BOX
+// the height of the ball.
+#define BALL_HEIGHT BOX
+// the initial velocity for the ball.
+#define BALL_INITIAL_VELOCITY (RESOLUTION_HEIGHT / 300)
 
 // available network node modes.
 enum Mode { CLIENT, SERVER };
 // available application states.
 enum State { RUNNING, STOPPED };
+// available dynamic object movement directions.
+enum Direction { UP = -1, DOWN = 1, LEFT = -1, RIGHT = 1, NONE = 0 };
+
+// ============================================================================
+
+typedef struct {
+  // the timestamp of the state.
+  int time;
+  // the rect of the state.
+  SDL_Rect rect;
+} State;
+
+typedef struct {
+  // the array of dynamic object states.
+  State states[STATE_CACHE_SIZE];
+  // an index to the most recent state.
+  int most_recent_state_index;
+  // a definition whether the current node owns the object.
+  int owned;
+  // the movement speed.
+  int velocity;
+  // the movement direction in x-axis.
+  int direction_x;
+  // the movement direction in y-axis.
+  int direction_y;
+} DynamicObject;
 
 // ============================================================================
 
@@ -58,6 +104,27 @@ const SDL_Rect CENTER_LINE[15] = {
   { RESOLUTION_HALF_WIDTH - BOX_HALF, BOX + (12 * 1.93f * BOX), BOX, BOX},
   { RESOLUTION_HALF_WIDTH - BOX_HALF, BOX + (13 * 1.93f * BOX), BOX, BOX},
   { RESOLUTION_HALF_WIDTH - BOX_HALF, BOX + (14 * 1.93f * BOX), BOX, BOX}
+};
+// the starting position of the left paddle.
+const SDL_Rect LEFT_PADDLE_START = {
+  PADDLE_EDGE_OFFSET,
+  RESOLUTION_HALF_HEIGHT - PADDLE_HALF_HEIGHT,
+  PADDLE_WIDTH,
+  PADDLE_HEIGHT
+};
+// the starting position of the right paddle.
+const SDL_Rect RIGHT_PADDLE_START = {
+  RESOLUTION_WIDTH - PADDLE_EDGE_OFFSET - BOX,
+  RESOLUTION_HALF_HEIGHT - PADDLE_HALF_HEIGHT,
+  PADDLE_WIDTH,
+  PADDLE_HEIGHT
+};
+// the starting position for the game ball.
+const SDL_Rect BALL_START = {
+  RESOLUTION_HALF_WIDTH - BOX_HALF,
+  RESOLUTION_HALF_HEIGHT - BOX_HALF,
+  BALL_WIDTH,
+  BALL_HEIGHT
 };
 
 // ============================================================================
@@ -95,10 +162,19 @@ static SDLNet_SocketSet sSocketSet = NULL;
 
 // the state of the application.
 static int sState = RUNNING;
+// the time (with offset) of the previous tick.
+static int sPreviousTick = 0;
 // the offset used to synchronize clocks among nodes.
 static int sTickOffset = 0;
 // the definition when to send next ping request.
 static int sNextPingTicks = 0;
+
+// the server's paddle shown at the left side of the scene.
+static DynamicObject sLeftPaddle;
+// the client's paddle shown at the right side of the scene.
+static DynamicObject sRightPaddle;
+// the ball moving across the scene.
+static DynamicObject sBall;
 
 // ============================================================================
 
@@ -187,6 +263,94 @@ static void initialize(int argc, char* argv[])
     exit(EXIT_FAILURE);
   }
   atexit(destroy_renderer);
+
+  // initialize the paddle show at the left side of the scene.
+  sLeftPaddle.owned = (sMode == SERVER ? 1 : 0);
+  sLeftPaddle.most_recent_state_index = 0;
+  sLeftPaddle.direction_x = NONE;
+  sLeftPaddle.direction_y = NONE;
+  sLeftPaddle.velocity = PADDLE_VELOCITY;
+  for (int i = 0; i < STATE_CACHE_SIZE; i++) {
+    sLeftPaddle.states[i].time = 0;
+    sLeftPaddle.states[i].rect = LEFT_PADDLE_START;
+  }
+
+  // initialize the paddle show at the right side of the scene.
+  sRightPaddle.owned = (sMode == CLIENT ? 1 : 0);
+  sRightPaddle.most_recent_state_index = 0;
+  sRightPaddle.direction_x = NONE;
+  sRightPaddle.direction_y = NONE;
+  sRightPaddle.velocity = PADDLE_VELOCITY;
+  for (int i = 0; i < STATE_CACHE_SIZE; i++) {
+    sRightPaddle.states[i].time = 0;
+    sRightPaddle.states[i].rect = RIGHT_PADDLE_START;
+  }
+
+  // initialize the ball to start from the middle of the scene.
+  sBall.owned = (sMode == SERVER ? 1 : 0);
+  sBall.most_recent_state_index = 0;
+  sBall.direction_x = NONE;
+  sBall.direction_y = NONE;
+  sBall.velocity = PADDLE_VELOCITY;
+  for (int i = 0; i < STATE_CACHE_SIZE; i++) {
+    sBall.states[i].time = 0;
+    sBall.states[i].rect = BALL_START;
+  }
+}
+
+// ============================================================================
+// Get a rect for the given time for the target object.
+static SDL_Rect state_get(DynamicObject* object, int time)
+{
+  SDL_assert(object != NULL);
+
+  // state checks are only required for non-owned objects.
+  if (object->owned != 1) {
+    // iterate over all states starting from the most recent one.
+    int previousTime = 0;
+    for (int i = 0; i < STATE_CACHE_SIZE; i++) {
+      int index = abs(object->most_recent_state_index - i) % STATE_CACHE_SIZE;
+      if (object->states[index].time == time) {
+        // found an exactly matching entry.
+        return object->states[index].rect;
+      } else if (object->states[index].time < time) {
+        if (previousTime > time) {
+          // calculate previous index and a time scalar.
+          int prevIndex = (index + 1) % STATE_CACHE_SIZE;
+          float t = (object->states[index].time - time) /
+                    (object->states[prevIndex].time - time);
+          SDL_Rect* prevRect = &object->states[prevIndex].rect;
+
+          // calculate a new rect by using a linear interpolation.
+          SDL_Rect rect = object->states[index].rect;
+          rect.x = rect.x + (int)(t * (float)(prevRect->x - rect.x));
+          rect.y = rect.y + (int)(t * (float)(prevRect->y - rect.y));
+          return rect;
+        } else {
+          // return the most recent entry.
+          return object->states[index].rect;
+        }
+      }
+    }
+  }
+  return object->states[object->most_recent_state_index].rect;
+}
+
+// ============================================================================
+// set the given rect as a state for the given object at the given time.
+static void state_set(DynamicObject* object, SDL_Rect* rect, int time)
+{
+  SDL_assert(object != NULL);
+  SDL_assert(rect != NULL);
+
+  // increment the most recent state index by one.
+  int index = object->most_recent_state_index;
+  index = (index + 1) % STATE_CACHE_SIZE;
+  object->most_recent_state_index = index;
+
+  // add the given state as the most recent state.
+  object->states[object->most_recent_state_index].time = time;
+  object->states[object->most_recent_state_index].rect = *rect;
 }
 
 // ============================================================================
@@ -309,6 +473,42 @@ static void tcp_receive()
             sTickOffset = ((t1 - t0) + (t1 - t2)) / 2;
             printf("rtt:%d lag:%d offset:%d\n", rtt, lag, sTickOffset);
           }
+        } else if (strncmp(token, "left", 4) == 0) {
+          // get time, x and y positions.
+          token = strtok(NULL, ":");
+          int t = atoi(token);
+          token = strtok(NULL, ":");
+          int x = atoi(token);
+          token = strtok(NULL, ":");
+          int y = atoi(token);
+
+          // create a new state and assign it to states array.
+          SDL_Rect rect = {x, y, PADDLE_WIDTH, PADDLE_HEIGHT };
+          state_set(&sLeftPaddle, &rect, t);
+        } else if (strncmp(token, "right", 5) == 0) {
+          // get time, x and y positions.
+          token = strtok(NULL, ":");
+          int t = atoi(token);
+          token = strtok(NULL, ":");
+          int x = atoi(token);
+          token = strtok(NULL, ":");
+          int y = atoi(token);
+
+          // create a new state and assign it to states array.
+          SDL_Rect rect = {x, y, PADDLE_WIDTH, PADDLE_HEIGHT };
+          state_set(&sRightPaddle, &rect, t);
+        } else if (strncmp(token, "ball", 4) == 0) {
+          // get time, x and y positions.
+          token = strtok(NULL, ":");
+          int t = atoi(token);
+          token = strtok(NULL, ":");
+          int x = atoi(token);
+          token = strtok(NULL, ":");
+          int y = atoi(token);
+
+          // create a new state and assign it to states array.
+          SDL_Rect rect = {x, y, BALL_WIDTH, BALL_HEIGHT };
+          state_set(&sBall, &rect, t);
         }
         memset(sStreamBuffer, 0, NETWORK_TCP_BUFFER_SIZE);
         sStreamCursor = 0;
@@ -322,18 +522,25 @@ static void tcp_receive()
 
 // ============================================================================
 // render and present all game objects on the screen.
-static void render()
+static void render(int time)
 {
+  // resolve the current position of each dynamic game object.
+  SDL_Rect leftPaddle = state_get(&sLeftPaddle, time);
+  SDL_Rect rightPaddle = state_get(&sRightPaddle, time);
+  SDL_Rect ball = state_get(&sBall, time);
+
   // clear the backbuffer with the black color.
   SDL_SetRenderDrawColor(sRenderer, 0x00, 0x00, 0x00, 0x00);
   SDL_RenderClear(sRenderer);
 
-  // render all visible game objects on the backbuffer.
+  // render all game objects on the backbuffer.
   SDL_SetRenderDrawColor(sRenderer, 0xff, 0xff, 0xff, 0xff);
   SDL_RenderFillRect(sRenderer, &TOP_WALL);
   SDL_RenderFillRect(sRenderer, &BOTTOM_WALL);
   SDL_RenderFillRects(sRenderer, CENTER_LINE, 15);
-  // TODO more to come...
+  SDL_RenderFillRect(sRenderer, &leftPaddle);
+  SDL_RenderFillRect(sRenderer, &rightPaddle);
+  SDL_RenderFillRect(sRenderer, &ball);
 
   // swap backbuffer to front and vice versa.
   SDL_RenderPresent(sRenderer);
@@ -341,9 +548,63 @@ static void render()
 
 // ============================================================================
 // update all game objects in a node specific way.
-static void update()
+static void update(int time)
 {
-  // TODO
+  // resolve the current position of each dynamic game object.
+  SDL_Rect left = state_get(&sLeftPaddle, sPreviousTick);
+  SDL_Rect right = state_get(&sRightPaddle, sPreviousTick);
+  SDL_Rect ball = state_get(&sBall, sPreviousTick);
+
+  // define flags to whether an update should be sent about dynamic objects.
+  int leftUpdated = 0;
+  int rightUpdated = 0;
+  int ballUpdated = 0;
+
+  // update the movement of the left paddle.
+  if (sLeftPaddle.owned == 1 && sLeftPaddle.direction_y != NONE) {
+    left.y += sLeftPaddle.velocity * sLeftPaddle.direction_y;
+    state_set(&sLeftPaddle, &left, time);
+    leftUpdated = 1;
+  }
+
+  // update the movement of the right paddle.
+  if (sRightPaddle.owned == 1 && sRightPaddle.direction_y != NONE) {
+    right.y += sRightPaddle.velocity * sRightPaddle.direction_y;
+    state_set(&sRightPaddle, &right, time);
+    rightUpdated = 1;
+  }
+
+  // update the movement of the right paddle.
+  if (sBall.owned == 1 && sBall.velocity != 0) {
+    ball.y += sBall.velocity * sBall.direction_y;
+    ball.x += sBall.velocity * sBall.direction_x;
+    state_set(&sBall, &ball, time);
+    ballUpdated = 1;
+  }
+
+  // TODO collide left.
+  // TODO collide right.
+  // TODO collide ball.
+
+  // send owned updates to remote node.
+  if (leftUpdated == 1) {
+    int x = left.x, y = left.y;
+    char buffer[NETWORK_TCP_BUFFER_SIZE];
+    snprintf(buffer, NETWORK_TCP_BUFFER_SIZE, "left:%d:%d:%d", time, x, y);
+    tcp_send(buffer);
+  }
+  if (rightUpdated == 1) {
+    int x = right.x, y = right.y;
+    char buffer[NETWORK_TCP_BUFFER_SIZE];
+    snprintf(buffer, NETWORK_TCP_BUFFER_SIZE, "right:%d:%d:%d", time, x, y);
+    tcp_send(buffer);
+  }
+  if (ballUpdated == 1) {
+    int x = ball.x, y = ball.y;
+    char buffer[NETWORK_TCP_BUFFER_SIZE];
+    snprintf(buffer, NETWORK_TCP_BUFFER_SIZE, "ball:%d:%d:%d", time, x, y);
+    tcp_send(buffer);
+  }
 }
 
 // ============================================================================
@@ -401,6 +662,50 @@ static void run()
         case SDL_QUIT:
           sState = STOPPED;
           break;
+        case SDL_KEYDOWN:
+          switch (event.key.keysym.sym) {
+            case SDLK_UP:
+              if (sMode == SERVER) {
+                sLeftPaddle.direction_y = UP;
+              } else {
+                sRightPaddle.direction_y = UP;
+              }
+              break;
+            case SDLK_DOWN:
+              if (sMode == SERVER) {
+                sLeftPaddle.direction_y = DOWN;
+              } else {
+                sRightPaddle.direction_y = DOWN;
+              }
+              break;
+          }
+          break;
+        case SDL_KEYUP:
+          switch (event.key.keysym.sym) {
+            case SDLK_UP:
+              if (sMode == SERVER) {
+                if (sLeftPaddle.direction_y == UP) {
+                  sLeftPaddle.direction_y = NONE;
+                }
+              } else {
+                if (sRightPaddle.direction_y == UP) {
+                  sRightPaddle.direction_y = NONE;
+                }
+              }
+              break;
+            case SDLK_DOWN:
+              if (sMode == SERVER) {
+                if (sLeftPaddle.direction_y == DOWN) {
+                  sLeftPaddle.direction_y = NONE;
+                }
+              } else {
+                if (sRightPaddle.direction_y == DOWN) {
+                  sRightPaddle.direction_y = NONE;
+                }
+              }
+              break;
+          }
+          break;
       }
     }
 
@@ -421,13 +726,14 @@ static void run()
     }
 
     // update game logics with a fixed framerate.
+    int time = get_ticks();
     deltaAccumulator += dt;
     if (deltaAccumulator >= TIMESTEP) {
-      update();
+      update(time);
       deltaAccumulator -= TIMESTEP;
     }
-
-    render();
+    render(time);
+    sPreviousTick = time;
   }
 }
 
