@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 // game resolution width in pixels.
 #define RESOLUTION_WIDTH 800
@@ -13,11 +14,19 @@
 #define NETWORK_PORT 6666
 // the TCP message buffer size.
 #define NETWORK_TCP_BUFFER_SIZE 512
+// the interval to send ping requests.
+#define NETWORK_PING_INTERVAL 1000
 
 // available network node modes.
 enum Mode { CLIENT, SERVER };
 // available application states.
 enum State { RUNNING, STOPPED };
+
+// ============================================================================
+
+static void ping_send_response(int pingTime);
+static int get_ticks_without_offset();
+static int get_ticks();
 
 // ============================================================================
 
@@ -38,13 +47,20 @@ static char sTCPSend[NETWORK_TCP_BUFFER_SIZE];
 // the message buffer for incoming TCP stream data.
 static char sTCPRecv[NETWORK_TCP_BUFFER_SIZE];
 
+// the TCP message stream buffer to handle network messages.
+static char sStreamBuffer[NETWORK_TCP_BUFFER_SIZE];
+// the TCP message stream cursor to follow stream content.
+static int sStreamCursor = 0;
+
 // the socket set used to listen for socket activities.
 static SDLNet_SocketSet sSocketSet = NULL;
 
 // the state of the application.
 static int sState = RUNNING;
-// the tick offset used to synchronize clocks among nodes.
+// the offset used to synchronize clocks among nodes.
 static int sTickOffset = 0;
+// the definition when to send next ping request.
+static int sNextPingTicks = 0;
 
 // ============================================================================
 
@@ -127,7 +143,7 @@ static void initialize(int argc, char* argv[])
   sRenderer = SDL_CreateRenderer(
     sWindow,
     -1,
-    SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    SDL_RENDERER_ACCELERATED);
   if (sRenderer == NULL) {
     printf("SDL_CreateRenderer: %s\n", SDL_GetError());
     exit(EXIT_FAILURE);
@@ -207,9 +223,8 @@ static void tcp_start()
 // send the given message to the remote node by using the TCP socket.
 static void tcp_send(const char* msg)
 {
-  int size = SDL_strlen(msg);
-  SDL_snprintf(sTCPSend, NETWORK_TCP_BUFFER_SIZE, "[%d]%s", size, msg);
-  size = SDL_strlen(sTCPSend);
+  SDL_snprintf(sTCPSend, NETWORK_TCP_BUFFER_SIZE, "%s|", msg);
+  int size = SDL_strlen(sTCPSend);
   if (SDLNet_TCP_Send(sTCPsocket, sTCPSend, size) != size) {
     printf("SDLNet_TCP_Send: %s\n", SDLNet_GetError());
     exit(EXIT_FAILURE);
@@ -220,12 +235,51 @@ static void tcp_send(const char* msg)
 // receive data from the remote node by using the TCP socket.
 static void tcp_receive()
 {
+  // get the incoming stream data from the TCP socket.
   int bytes = SDLNet_TCP_Recv(sTCPsocket, sTCPRecv, NETWORK_TCP_BUFFER_SIZE);
   if (bytes <= 0) {
     printf("The connection to the remote node was lost.\n");
     exit(EXIT_FAILURE);
   }
-  printf("recv: %s\n", sTCPRecv); // TODO remove after debugging...
+
+  // process the received data stream.
+  for (int i = 0; i < bytes; i++) {
+    if (sTCPRecv[i] == '|') {
+      if (sStreamCursor > 0) {
+        char* token = strtok(sStreamBuffer, ":");
+        if (strncmp(token, "ping", 4) == 0) {
+          // get the ping time from the request.
+          token = strtok(NULL, ":");
+          int t0 = atoi(token);
+
+          // send a pong response back to requester.
+          ping_send_response(t0);
+        } else if (strncmp(token, "pong", 4) == 0) {
+          // get ping and pong times.
+          token = strtok(NULL, ":");
+          int t0 = atoi(token);
+          token = strtok(NULL, ":");
+          int t1 = atoi(token);
+
+          // calculate latency and delta to adjust clock offset.
+          int t2 = get_ticks();
+          int rtt = (t2 - t0);
+          int lag = (rtt / 2);
+          if (sMode == SERVER) {
+            printf("rtt:%d lag:%d\n", rtt, lag);
+          } else {
+            sTickOffset = ((t1 - t0) + (t1 - t2)) / 2;
+            printf("rtt:%d lag:%d offset:%d\n", rtt, lag, sTickOffset);
+          }
+        }
+        memset(sStreamBuffer, 0, NETWORK_TCP_BUFFER_SIZE);
+        sStreamCursor = 0;
+      }
+    } else {
+      sStreamBuffer[sStreamCursor] = sTCPRecv[i];
+      sStreamCursor++;
+    }
+  }
 }
 
 // ============================================================================
@@ -240,6 +294,13 @@ static void render()
 
   // swap backbuffer to front and vice versa.
   SDL_RenderPresent(sRenderer);
+}
+
+// ============================================================================
+// get the current tick time without any offsets.
+static int get_ticks_without_offset()
+{
+  return SDL_GetTicks();
 }
 
 // ============================================================================
@@ -259,11 +320,19 @@ static void ping_send_request()
 }
 
 // ============================================================================
+// send a ping response message (pong) to the remote node.
+static void ping_send_response(int ping)
+{
+  char buffer[NETWORK_TCP_BUFFER_SIZE];
+  snprintf(buffer, NETWORK_TCP_BUFFER_SIZE, "pong:%d:%d", ping, get_ticks());
+  tcp_send(buffer);
+}
+
+// ============================================================================
 
 static void run()
 {
   tcp_start();
-  ping_send_request();
   ping_send_request();
   SDL_Event event;
   while (sState == RUNNING) {
@@ -276,14 +345,20 @@ static void run()
       }
     }
 
-    // peek to sockets and handle all pending messages.
+    // peek to sockets and process the incoming data.
     int socketState = SDLNet_CheckSockets(sSocketSet, 0);
     if (socketState == -1) {
       printf("SDLNet_CheckSockets: %s\n", SDLNet_GetError());
       perror("SDLNet_CheckSockets");
+      break;
     } else if (socketState > 0) {
       tcp_receive();
-      // TODO handle data?
+    }
+
+    // send ping request with the predefined interval.
+    if (sNextPingTicks <= get_ticks_without_offset()) {
+      ping_send_request();
+      sNextPingTicks = get_ticks_without_offset() + NETWORK_PING_INTERVAL;
     }
 
     render();
