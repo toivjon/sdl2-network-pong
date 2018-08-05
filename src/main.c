@@ -57,6 +57,8 @@
 #define BALL_HEIGHT BOX
 // the initial velocity for the ball.
 #define BALL_INITIAL_VELOCITY (RESOLUTION_HEIGHT / 300)
+// the amount of velocity to increase on each ball-paddle hit.
+#define BALL_VELOCITY_INCREMENT 1
 
 // the width for the score indicator numbers.
 #define SCORE_WIDTH (RESOLUTION_WIDTH / 10)
@@ -635,16 +637,20 @@ static void tcp_receive()
           int dirX = atoi(token);
           token = strtok(NULL, ":");
           int dirY = atoi(token);
+          token = strtok(NULL, ":");
+          int velocity = atoi(token);
 
           // check if we need to correct the position and direction of the ball.
           SDL_Rect rect = {x, y, BALL_WIDTH, BALL_HEIGHT };
           SDL_Rect usedRect = state_get(&sBall, t);
           if (usedRect.x != rect.x || usedRect.y != rect.y
-            || dirX != sBall.direction_x || dirY != sBall.direction_y) {
+            || dirX != sBall.direction_x || dirY != sBall.direction_y
+            || velocity != sBall.velocity) {
             state_clear(&sBall, &rect, t);
             state_set(&sBall, &rect, t);
             sBall.direction_x = dirX;
             sBall.direction_y = dirY;
+            sBall.velocity = velocity;
           }
         } else if (strncmp(token, "reset", 5) == 0) {
           SDL_assert(sMode == CLIENT);
@@ -869,33 +875,37 @@ static void update(int time)
     if (SDL_HasIntersection(&left, &ball)) {
       ball.x = (left.x + left.w);
       sBall.direction_x *= -1;
+      sBall.velocity += BALL_VELOCITY_INCREMENT;
       if (sLeftPaddle.owned == 1) {
         // send a state update about the movement to remote node.
         char buffer[NETWORK_TCP_BUFFER_SIZE];
         snprintf(buffer,
           NETWORK_TCP_BUFFER_SIZE,
-          "ball:%d:%d:%d:%d:%d",
+          "ball:%d:%d:%d:%d:%d:%d",
           time,
           ball.x,
           ball.y,
           sBall.direction_x,
-          sBall.direction_y);
+          sBall.direction_y,
+          sBall.velocity);
         tcp_send(buffer);
       }
     } else if (SDL_HasIntersection(&right, &ball)) {
       ball.x = (right.x - ball.w);
       sBall.direction_x *= -1;
+      sBall.velocity += BALL_VELOCITY_INCREMENT;
       if (sRightPaddle.owned == 1) {
         // send a state update about the movement to remote node.
         char buffer[NETWORK_TCP_BUFFER_SIZE];
         snprintf(buffer,
           NETWORK_TCP_BUFFER_SIZE,
-          "ball:%d:%d:%d:%d:%d",
+          "ball:%d:%d:%d:%d:%d:%d",
           time,
           ball.x,
           ball.y,
           sBall.direction_x,
-          sBall.direction_y);
+          sBall.direction_y,
+          sBall.velocity);
         tcp_send(buffer);
       }
     }
