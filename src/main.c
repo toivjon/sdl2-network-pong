@@ -168,6 +168,8 @@ static int sPreviousTick = 0;
 static int sTickOffset = 0;
 // the definition when to send next ping request.
 static int sNextPingTicks = 0;
+// the remote lag used to compensate latency.
+static int sRemoteLag = 0;
 
 // the server's paddle shown at the left side of the scene.
 static DynamicObject sLeftPaddle;
@@ -306,29 +308,34 @@ static SDL_Rect state_get(DynamicObject* object, int time)
 
   // state checks are only required for non-owned objects.
   if (object->owned != 1) {
-    // iterate over all states starting from the most recent one.
-    int previousTime = 0;
-    for (int i = 0; i < STATE_CACHE_SIZE; i++) {
-      int index = abs(object->most_recent_state_index - i) % STATE_CACHE_SIZE;
-      if (object->states[index].time == time) {
-        // found an exactly matching entry.
-        return object->states[index].rect;
-      } else if (object->states[index].time < time) {
-        if (previousTime > time) {
-          // calculate previous index and a time scalar.
-          int prevIndex = (index + 1) % STATE_CACHE_SIZE;
-          float t = (object->states[index].time - time) /
-                    (object->states[prevIndex].time - time);
-          SDL_Rect* prevRect = &object->states[prevIndex].rect;
+    // apply remote lag to keep non-owned objects in the past to compensate lag.
+    time = time - sRemoteLag;
 
-          // calculate a new rect by using a linear interpolation.
-          SDL_Rect rect = object->states[index].rect;
-          rect.x = rect.x + (int)(t * (float)(prevRect->x - rect.x));
-          rect.y = rect.y + (int)(t * (float)(prevRect->y - rect.y));
-          return rect;
-        } else {
-          // return the most recent entry.
-          return object->states[index].rect;
+    int index = (object->most_recent_state_index + 1) % STATE_CACHE_SIZE;
+    if (object->states[index].time > time) {
+      return object->states[index].rect;
+    } else {
+      index = object->most_recent_state_index;
+      if (object->states[index].time <= time) {
+        return object->states[index].rect;
+      } else {
+        for (int i = 0; i < STATE_CACHE_SIZE; i++) {
+          index = abs(object->most_recent_state_index - i) % STATE_CACHE_SIZE;
+          if (object->states[index].time == time) {
+            return object->states[index].rect;
+          } else if (object->states[index].time > time) {
+            // calculate previous index and a time scalar.
+            int prevIndex = (index + 1) % STATE_CACHE_SIZE;
+            float t = (object->states[index].time - time) /
+                      (object->states[prevIndex].time - time);
+            SDL_Rect* prevRect = &object->states[prevIndex].rect;
+
+            // calculate a new rect by using a linear interpolation.
+            SDL_Rect rect = object->states[index].rect;
+            rect.x += (int)(t * (float)(prevRect->x - rect.x));
+            rect.y += (int)(t * (float)(prevRect->y - rect.y));
+            return rect;
+          }
         }
       }
     }
@@ -463,15 +470,17 @@ static void tcp_receive()
           token = strtok(NULL, ":");
           int t1 = atoi(token);
 
-          // calculate latency and delta to adjust clock offset.
+          // calculate latency and delta to adjust clock offset and remote lag.
           int t2 = get_ticks();
           int rtt = (t2 - t0);
           int lag = (rtt / 2);
+          sRemoteLag = lag + (50 - (lag % 50));
           if (sMode == SERVER) {
-            printf("rtt:%d lag:%d\n", rtt, lag);
+            printf("rtt:%d remoteLag:%d\n", rtt, sRemoteLag);
           } else {
-            sTickOffset = ((t1 - t0) + (t1 - t2)) / 2;
-            printf("rtt:%d lag:%d offset:%d\n", rtt, lag, sTickOffset);
+            int cc = ((t1 - t0) + (t1 - t2)) / 2;
+            sTickOffset += cc;
+            printf("rtt:%d remoteLag:%d cc:%d co:%d\n", rtt, sRemoteLag, cc, sTickOffset);
           }
         } else if (strncmp(token, "left", 4) == 0) {
           // get time, x and y positions.
@@ -555,64 +564,60 @@ static void update(int time)
   SDL_Rect right = state_get(&sRightPaddle, sPreviousTick);
   SDL_Rect ball = state_get(&sBall, sPreviousTick);
 
-  // define flags to whether an update should be sent about dynamic objects.
-  int leftUpdated = 0;
-  int rightUpdated = 0;
-  int ballUpdated = 0;
-
-  // update the movement of the left paddle and honour wall boundaries.
+  // update the left paddle whether it's being owned and actually moving.
   if (sLeftPaddle.owned == 1 && sLeftPaddle.direction_y != NONE) {
+    // move the paddle based on the movement direction.
     left.y += sLeftPaddle.velocity * sLeftPaddle.direction_y;
+
+    // ensure that the top and bottom wall boundaries are honoured.
     if (SDL_HasIntersection(&left, &TOP_WALL)) {
       left.y = (TOP_WALL.y + TOP_WALL.h);
     } else if (SDL_HasIntersection(&left, &BOTTOM_WALL)) {
       left.y = (BOTTOM_WALL.y - PADDLE_HEIGHT);
     }
+
+    // update the local state with the new position.
     state_set(&sLeftPaddle, &left, time);
-    leftUpdated = 1;
+
+    // send a state update about the movement to remote node.
+    char buffer[NETWORK_TCP_BUFFER_SIZE];
+    snprintf(buffer, NETWORK_TCP_BUFFER_SIZE, "left:%d:%d:%d", time, left.x, left.y);
+    tcp_send(buffer);
   }
 
-  // update the movement of the right paddle.
+  // update the right paddle whether it's being owned and actually moving.
   if (sRightPaddle.owned == 1 && sRightPaddle.direction_y != NONE) {
+    // move the paddle based on the movement direction.
     right.y += sRightPaddle.velocity * sRightPaddle.direction_y;
+
+    // ensure that the top and bottom wall boundaries are honoured.
     if (SDL_HasIntersection(&right, &TOP_WALL)) {
       right.y = (TOP_WALL.y + TOP_WALL.h);
     } else if (SDL_HasIntersection(&right, &BOTTOM_WALL)) {
       right.y = (BOTTOM_WALL.y - PADDLE_HEIGHT);
     }
+
+    // update the local state with the new position.
     state_set(&sRightPaddle, &right, time);
-    rightUpdated = 1;
+
+    // send a state update about the movement to remote node.
+    char buffer[NETWORK_TCP_BUFFER_SIZE];
+    snprintf(buffer, NETWORK_TCP_BUFFER_SIZE, "right:%d:%d:%d", time, right.x, right.y);
+    tcp_send(buffer);
   }
 
   // update the movement of the right paddle.
   if (sBall.owned == 1 && sBall.velocity != 0) {
+    // move the ball based on the movement direction.
     ball.y += sBall.velocity * sBall.direction_y;
     ball.x += sBall.velocity * sBall.direction_x;
+
+    // update the local state with the new position.
     state_set(&sBall, &ball, time);
-    ballUpdated = 1;
-  }
 
-  // TODO collide left.
-  // TODO collide right.
-  // TODO collide ball.
-
-  // send owned updates to remote node.
-  if (leftUpdated == 1) {
-    int x = left.x, y = left.y;
+    // send a state update about the movement to remote node.
     char buffer[NETWORK_TCP_BUFFER_SIZE];
-    snprintf(buffer, NETWORK_TCP_BUFFER_SIZE, "left:%d:%d:%d", time, x, y);
-    tcp_send(buffer);
-  }
-  if (rightUpdated == 1) {
-    int x = right.x, y = right.y;
-    char buffer[NETWORK_TCP_BUFFER_SIZE];
-    snprintf(buffer, NETWORK_TCP_BUFFER_SIZE, "right:%d:%d:%d", time, x, y);
-    tcp_send(buffer);
-  }
-  if (ballUpdated == 1) {
-    int x = ball.x, y = ball.y;
-    char buffer[NETWORK_TCP_BUFFER_SIZE];
-    snprintf(buffer, NETWORK_TCP_BUFFER_SIZE, "ball:%d:%d:%d", time, x, y);
+    snprintf(buffer, NETWORK_TCP_BUFFER_SIZE, "ball:%d:%d:%d", time, ball.x, ball.y);
     tcp_send(buffer);
   }
 }
