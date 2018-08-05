@@ -570,13 +570,21 @@ static void tcp_receive()
           int x = atoi(token);
           token = strtok(NULL, ":");
           int y = atoi(token);
+          token = strtok(NULL, ":");
+          int dirX = atoi(token);
+          token = strtok(NULL, ":");
+          int dirY = atoi(token);
 
-          // create a new state and assign it to states array.
+          // check if we need to correct the position and direction of the ball.
           SDL_Rect rect = {x, y, BALL_WIDTH, BALL_HEIGHT };
-
-          // TODO here we should check whether we need to correct ball rect!
-
-          state_set(&sBall, &rect, t);
+          SDL_Rect usedRect = state_get(&sBall, t);
+          if (usedRect.x != rect.x || usedRect.y != rect.y
+            || dirX != sBall.direction_x || dirY != sBall.direction_y) {
+            state_clear(&sBall, &rect, t);
+            state_set(&sBall, &rect, t);
+            sBall.direction_x = dirX;
+            sBall.direction_y = dirY;
+          }
         } else if (strncmp(token, "reset", 5) == 0) {
           SDL_assert(sMode == CLIENT);
 
@@ -710,7 +718,14 @@ static void update(int time)
       if (sLeftPaddle.owned == 1) {
         // send a state update about the movement to remote node.
         char buffer[NETWORK_TCP_BUFFER_SIZE];
-        snprintf(buffer, NETWORK_TCP_BUFFER_SIZE, "ball:%d:%d:%d", time, ball.x, ball.y);
+        snprintf(buffer,
+          NETWORK_TCP_BUFFER_SIZE,
+          "ball:%d:%d:%d:%d:%d",
+          time,
+          ball.x,
+          ball.y,
+          sBall.direction_x,
+          sBall.direction_y);
         tcp_send(buffer);
       }
     } else if (SDL_HasIntersection(&right, &ball)) {
@@ -719,7 +734,14 @@ static void update(int time)
       if (sRightPaddle.owned == 1) {
         // send a state update about the movement to remote node.
         char buffer[NETWORK_TCP_BUFFER_SIZE];
-        snprintf(buffer, NETWORK_TCP_BUFFER_SIZE, "ball:%d:%d:%d", time, ball.x, ball.y);
+        snprintf(buffer,
+          NETWORK_TCP_BUFFER_SIZE,
+          "ball:%d:%d:%d:%d:%d",
+          time,
+          ball.x,
+          ball.y,
+          sBall.direction_x,
+          sBall.direction_y);
         tcp_send(buffer);
       }
     }
