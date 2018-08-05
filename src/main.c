@@ -90,6 +90,10 @@ typedef struct {
 const SDL_Rect TOP_WALL = { 0, 0, RESOLUTION_WIDTH, BOX };
 // boundaries of the non-moving wall at the bottom of the scene.
 const SDL_Rect BOTTOM_WALL = { 0, RESOLUTION_HEIGHT - BOX, RESOLUTION_WIDTH, BOX };
+// the boundaries of the invisible left goal.
+const SDL_Rect LEFT_GOAL = { -1000, 0, (1000 - BOX), RESOLUTION_HEIGHT };
+// the boundaries of the invisible right goal.
+const SDL_Rect RIGHT_GOAL = { RESOLUTION_WIDTH + BOX, 0, 1000, RESOLUTION_HEIGHT };
 // boundaries of the center line containing 15 boxes.
 const SDL_Rect CENTER_LINE[15] = {
   { RESOLUTION_HALF_WIDTH - BOX_HALF, BOX + (0 * 1.93f * BOX), BOX, BOX},
@@ -187,6 +191,11 @@ static DynamicObject sRightPaddle;
 // the ball moving across the scene.
 static DynamicObject sBall;
 
+// the points of the left player.
+static int sLeftPoints = 0;
+// the points of the right player.
+static int sRightPoints = 0;
+
 // ============================================================================
 
 static void parse_arguments(int argc, char* argv[])
@@ -228,6 +237,24 @@ static void close_tcp_socket()
 static void close_socket_set()
 {
   SDLNet_FreeSocketSet(sSocketSet);
+}
+
+// ============================================================================
+// give a point to the target player.
+static void give_point(int player)
+{
+  SDL_assert(player >= 0);
+  SDL_assert(player <= 1);
+
+  // increment points of the target player.
+  printf("A point for %s player!\n", (player == 0 ? "left" : "right"));
+  if (player == 0) {
+    sLeftPoints++;
+  } else {
+    sRightPoints++;
+  }
+
+  // TODO handle when the game ends.
 }
 
 // ============================================================================
@@ -569,6 +596,10 @@ static void tcp_receive()
 
           // perform a client reset.
           reset_client(t);
+        } else if (strncmp(token, "goal", 4) == 0) {
+          SDL_assert(sMode == SERVER);
+          give_point(0);
+          reset_server(get_ticks());
         }
         memset(sStreamBuffer, 0, NETWORK_TCP_BUFFER_SIZE);
         sStreamCursor = 0;
@@ -693,6 +724,21 @@ static void update(int time)
       }
     }
 
+    // check whether the ball hit a goal (decide on a owner side).
+    if (sLeftPaddle.owned == 1) {
+      if (SDL_HasIntersection(&ball, &LEFT_GOAL)) {
+        give_point(1);
+        reset_server(time);
+        return;
+      }
+    } else {
+      if (SDL_HasIntersection(&ball, &RIGHT_GOAL)) {
+        tcp_send("goal");
+        reset_client(time);
+        return;
+      }
+    }
+
     // update the local state with the new position.
     state_set(&sBall, &ball, time);
   }
@@ -748,6 +794,8 @@ static int random_horizontal_direction()
 // reset the game (except points) at the client side.
 static void reset_client(int time)
 {
+  SDL_assert(sMode == CLIENT);
+
   // clear all possible future states from the dynamic objects.
   state_clear(&sRightPaddle, &RIGHT_PADDLE_START, time);
   state_clear(&sLeftPaddle, &LEFT_PADDLE_START, time);
@@ -766,7 +814,9 @@ static void reset_client(int time)
 // reset the game (except points) at the server side.
 static void reset_server(int time)
 {
-// clear all possible future states from the dynamic objects.
+  SDL_assert(sMode == SERVER);
+
+  // clear all possible future states from the dynamic objects.
   state_clear(&sRightPaddle, &RIGHT_PADDLE_START, time);
   state_clear(&sLeftPaddle, &LEFT_PADDLE_START, time);
   state_clear(&sBall, &BALL_START, time);
