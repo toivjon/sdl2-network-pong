@@ -299,7 +299,7 @@ static void initialize(int argc, char* argv[])
   sBall.most_recent_state_index = 0;
   sBall.direction_x = (sMode == SERVER ? random_horizontal_direction() : NONE);
   sBall.direction_y = (sMode == SERVER ? random_vertical_direction() : NONE);
-  sBall.velocity = PADDLE_VELOCITY;
+  sBall.velocity = BALL_INITIAL_VELOCITY;
   for (int i = 0; i < STATE_CACHE_SIZE; i++) {
     sBall.states[i].time = 0;
     sBall.states[i].rect = BALL_START;
