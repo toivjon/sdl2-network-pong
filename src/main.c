@@ -357,7 +357,7 @@ static SDL_Rect state_get(DynamicObject* object, int time)
 
 // ============================================================================
 // set the given rect as a state for the given object at the given time.
-static void state_set(DynamicObject* object, SDL_Rect* rect, int time)
+static void state_set(DynamicObject* object, const SDL_Rect* rect, int time)
 {
   SDL_assert(object != NULL);
   SDL_assert(rect != NULL);
@@ -370,6 +370,23 @@ static void state_set(DynamicObject* object, SDL_Rect* rect, int time)
   // add the given state as the most recent state.
   object->states[object->most_recent_state_index].time = time;
   object->states[object->most_recent_state_index].rect = *rect;
+}
+
+// ============================================================================
+// set all states to given rect after the given from time point.
+static void state_clear(DynamicObject* object, const SDL_Rect* rect, int from)
+{
+  SDL_assert(object != NULL);
+  SDL_assert(rect != NULL);
+  SDL_assert(from > 0);
+
+  // clear all states starting from the given time.
+  for (int i = 0; i < STATE_CACHE_SIZE; i++) {
+    if (object->states[i].time >= from) {
+      object->states[i].time = from;
+      object->states[i].rect = *rect;
+    }
+  }
 }
 
 // ============================================================================
@@ -729,9 +746,15 @@ static int random_horizontal_direction()
 // reset the game (except points) at the client side.
 static void reset_client(int time)
 {
-  printf("time: %d\n", time);
-  // TODO reset paddles.
-  // TODO reset ball.
+  // clear all possible future states from the dynamic objects.
+  state_clear(&sRightPaddle, &RIGHT_PADDLE_START, time);
+  state_clear(&sLeftPaddle, &LEFT_PADDLE_START, time);
+  state_clear(&sBall, &BALL_START, time);
+
+  // reset dynamic objects back to their starting positions.
+  state_set(&sRightPaddle, &RIGHT_PADDLE_START, time);
+  state_set(&sLeftPaddle, &LEFT_PADDLE_START, time);
+  state_set(&sBall, &BALL_START, time);
 
   // reset ball velocity back to initial velocity.
   sBall.velocity = BALL_INITIAL_VELOCITY;
@@ -741,8 +764,15 @@ static void reset_client(int time)
 // reset the game (except points) at the server side.
 static void reset_server(int time)
 {
-  // TODO reset paddles.
-  // TODO return ball.
+// clear all possible future states from the dynamic objects.
+  state_clear(&sRightPaddle, &RIGHT_PADDLE_START, time);
+  state_clear(&sLeftPaddle, &LEFT_PADDLE_START, time);
+  state_clear(&sBall, &BALL_START, time);
+
+  // reset dynamic objects back to their starting positions.
+  state_set(&sRightPaddle, &RIGHT_PADDLE_START, time);
+  state_set(&sLeftPaddle, &LEFT_PADDLE_START, time);
+  state_set(&sBall, &BALL_START, time);
 
   // reset ball velocity back to initial velocity.
   sBall.velocity = BALL_INITIAL_VELOCITY;
