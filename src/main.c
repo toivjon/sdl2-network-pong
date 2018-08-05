@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 // game resolution width in pixels.
 #define RESOLUTION_WIDTH 800
@@ -132,6 +133,8 @@ const SDL_Rect BALL_START = {
 static void ping_send_response(int pingTime);
 static int get_ticks_without_offset();
 static int get_ticks();
+static int random_vertical_direction();
+static int random_horizontal_direction();
 
 // ============================================================================
 
@@ -266,6 +269,9 @@ static void initialize(int argc, char* argv[])
   }
   atexit(destroy_renderer);
 
+  // seed the random generator.
+  srand(time(NULL));
+
   // initialize the paddle show at the left side of the scene.
   sLeftPaddle.owned = (sMode == SERVER ? 1 : 0);
   sLeftPaddle.most_recent_state_index = 0;
@@ -291,8 +297,8 @@ static void initialize(int argc, char* argv[])
   // initialize the ball to start from the middle of the scene.
   sBall.owned = (sMode == SERVER ? 1 : 0);
   sBall.most_recent_state_index = 0;
-  sBall.direction_x = NONE;
-  sBall.direction_y = NONE;
+  sBall.direction_x = (sMode == SERVER ? random_horizontal_direction() : NONE);
+  sBall.direction_y = (sMode == SERVER ? random_vertical_direction() : NONE);
   sBall.velocity = PADDLE_VELOCITY;
   for (int i = 0; i < STATE_CACHE_SIZE; i++) {
     sBall.states[i].time = 0;
@@ -652,6 +658,20 @@ static void ping_send_response(int ping)
   char buffer[NETWORK_TCP_BUFFER_SIZE];
   snprintf(buffer, NETWORK_TCP_BUFFER_SIZE, "pong:%d:%d", ping, get_ticks());
   tcp_send(buffer);
+}
+
+// ============================================================================
+// get a random vertical direction (UP / DOWN)
+static int random_vertical_direction()
+{
+  return (rand() % 2) == 0 ? UP : DOWN;
+}
+
+// ============================================================================
+// get a random horizontal direction (LEFT / RIGHT).
+static int random_horizontal_direction()
+{
+  return (rand() % 2) == 0 ? LEFT : RIGHT;
 }
 
 // ============================================================================
