@@ -58,6 +58,27 @@
 // the initial velocity for the ball.
 #define BALL_INITIAL_VELOCITY (RESOLUTION_HEIGHT / 300)
 
+// the width for the score indicator numbers.
+#define SCORE_WIDTH (RESOLUTION_WIDTH / 10)
+// the height for the score indicator numbers.
+#define SCORE_HEIGHT (RESOLUTION_HEIGHT / 6)
+// the half of the score indicator width.
+#define SCORE_HALF_WIDTH (SCORE_WIDTH / 2)
+// the half of the score indicator height.
+#define SCORE_HALF_HEIGHT (SCORE_HEIGHT / 2)
+
+// the line thickness for score indicator numbers.
+#define SCORE_THICKNESS (SCORE_HEIGHT / 5)
+// the half of the score indicator line thickness.
+#define SCORE_HALF_THICKNESS (SCORE_THICKNESS / 2)
+
+// the x-coordinate of the up-left position of the left score number.
+#define SCORE_LEFT_X ((RESOLUTION_WIDTH / 2) - (2 * SCORE_WIDTH))
+// the x-coordinate of the up-left position of the right score number.
+#define SCORE_RIGHT_X ((RESOLUTION_WIDTH / 2) + SCORE_WIDTH)
+// the y-coordinate of the up-left position of the left score number.
+#define SCORE_Y (RESOLUTION_HEIGHT / 10)
+
 // available network node modes.
 enum Mode { CLIENT, SERVER };
 // available application states.
@@ -99,6 +120,7 @@ const SDL_Rect BOTTOM_WALL = { 0, RESOLUTION_HEIGHT - BOX, RESOLUTION_WIDTH, BOX
 const SDL_Rect LEFT_GOAL = { -1000, 0, (1000 - BOX), RESOLUTION_HEIGHT };
 // the boundaries of the invisible right goal.
 const SDL_Rect RIGHT_GOAL = { RESOLUTION_WIDTH + BOX, 0, 1000, RESOLUTION_HEIGHT };
+
 // boundaries of the center line containing 15 boxes.
 const SDL_Rect CENTER_LINE[15] = {
   { RESOLUTION_HALF_WIDTH - BOX_HALF, BOX + (0 * 1.93f * BOX), BOX, BOX},
@@ -117,6 +139,7 @@ const SDL_Rect CENTER_LINE[15] = {
   { RESOLUTION_HALF_WIDTH - BOX_HALF, BOX + (13 * 1.93f * BOX), BOX, BOX},
   { RESOLUTION_HALF_WIDTH - BOX_HALF, BOX + (14 * 1.93f * BOX), BOX, BOX}
 };
+
 // the starting position of the left paddle.
 const SDL_Rect LEFT_PADDLE_START = {
   PADDLE_EDGE_OFFSET,
@@ -137,6 +160,30 @@ const SDL_Rect BALL_START = {
   RESOLUTION_HALF_HEIGHT - BOX_HALF,
   BALL_WIDTH,
   BALL_HEIGHT
+};
+
+// horizontal line rectangles used with left score indicator.
+const SDL_Rect SCORE_LEFT_PARTS[8] = {
+  { SCORE_LEFT_X, SCORE_Y, SCORE_WIDTH, SCORE_THICKNESS },
+  { SCORE_LEFT_X, SCORE_Y + SCORE_HALF_HEIGHT - SCORE_HALF_THICKNESS, SCORE_WIDTH, SCORE_THICKNESS},
+  { SCORE_LEFT_X, SCORE_Y + SCORE_HEIGHT - SCORE_THICKNESS, SCORE_WIDTH, SCORE_THICKNESS },
+  { SCORE_LEFT_X, SCORE_Y, SCORE_THICKNESS, SCORE_HALF_HEIGHT },
+  { SCORE_LEFT_X, SCORE_Y + SCORE_HALF_HEIGHT, SCORE_THICKNESS, SCORE_HALF_HEIGHT },
+  { SCORE_LEFT_X + SCORE_WIDTH - SCORE_THICKNESS, SCORE_Y, SCORE_THICKNESS, SCORE_HALF_HEIGHT },
+  { SCORE_LEFT_X + SCORE_WIDTH - SCORE_THICKNESS, SCORE_Y + SCORE_HALF_HEIGHT, SCORE_THICKNESS, SCORE_HALF_HEIGHT },
+  { SCORE_LEFT_X + SCORE_HALF_WIDTH - SCORE_THICKNESS, SCORE_Y, SCORE_THICKNESS, SCORE_HEIGHT }
+};
+
+// horizontal line rectangles used with right score indicator.
+const SDL_Rect SCORE_RIGHT_PARTS[8] = {
+  { SCORE_RIGHT_X, SCORE_Y, SCORE_WIDTH, SCORE_THICKNESS },
+  { SCORE_RIGHT_X, SCORE_Y + SCORE_HALF_HEIGHT - SCORE_HALF_THICKNESS, SCORE_WIDTH, SCORE_THICKNESS},
+  { SCORE_RIGHT_X, SCORE_Y + SCORE_HEIGHT - SCORE_THICKNESS, SCORE_WIDTH, SCORE_THICKNESS },
+  { SCORE_RIGHT_X, SCORE_Y, SCORE_THICKNESS, SCORE_HALF_HEIGHT },
+  { SCORE_RIGHT_X, SCORE_Y + SCORE_HALF_HEIGHT, SCORE_THICKNESS, SCORE_HALF_HEIGHT },
+  { SCORE_RIGHT_X + SCORE_WIDTH - SCORE_THICKNESS, SCORE_Y, SCORE_THICKNESS, SCORE_HALF_HEIGHT },
+  { SCORE_RIGHT_X + SCORE_WIDTH - SCORE_THICKNESS, SCORE_Y + SCORE_HALF_HEIGHT, SCORE_THICKNESS, SCORE_HALF_HEIGHT },
+  { SCORE_RIGHT_X + SCORE_HALF_WIDTH - SCORE_THICKNESS, SCORE_Y, SCORE_THICKNESS, SCORE_HEIGHT }
 };
 
 // ============================================================================
@@ -645,6 +692,84 @@ static void tcp_receive()
 }
 
 // ============================================================================
+// render a point on the screen.
+static void render_point(const SDL_Rect pointParts[8], int points)
+{
+  SDL_assert(pointParts != NULL);
+  SDL_assert(points >= 0);
+  switch (points) {
+    case 0:
+      SDL_RenderFillRect(sRenderer, &pointParts[0]);
+      SDL_RenderFillRect(sRenderer, &pointParts[2]);
+      SDL_RenderFillRect(sRenderer, &pointParts[3]);
+      SDL_RenderFillRect(sRenderer, &pointParts[4]);
+      SDL_RenderFillRect(sRenderer, &pointParts[5]);
+      SDL_RenderFillRect(sRenderer, &pointParts[6]);
+      break;
+    case 1:
+      SDL_RenderFillRect(sRenderer, &pointParts[7]);
+      break;
+    case 2:
+      SDL_RenderFillRect(sRenderer, &pointParts[0]);
+      SDL_RenderFillRect(sRenderer, &pointParts[1]);
+      SDL_RenderFillRect(sRenderer, &pointParts[2]);
+      SDL_RenderFillRect(sRenderer, &pointParts[4]);
+      SDL_RenderFillRect(sRenderer, &pointParts[5]);
+      break;
+    case 3:
+      SDL_RenderFillRect(sRenderer, &pointParts[0]);
+      SDL_RenderFillRect(sRenderer, &pointParts[1]);
+      SDL_RenderFillRect(sRenderer, &pointParts[2]);
+      SDL_RenderFillRect(sRenderer, &pointParts[5]);
+      SDL_RenderFillRect(sRenderer, &pointParts[6]);
+      break;
+    case 4:
+      SDL_RenderFillRect(sRenderer, &pointParts[1]);
+      SDL_RenderFillRect(sRenderer, &pointParts[3]);
+      SDL_RenderFillRect(sRenderer, &pointParts[5]);
+      SDL_RenderFillRect(sRenderer, &pointParts[6]);
+      break;
+    case 5:
+      SDL_RenderFillRect(sRenderer, &pointParts[0]);
+      SDL_RenderFillRect(sRenderer, &pointParts[1]);
+      SDL_RenderFillRect(sRenderer, &pointParts[2]);
+      SDL_RenderFillRect(sRenderer, &pointParts[3]);
+      SDL_RenderFillRect(sRenderer, &pointParts[6]);
+      break;
+    case 6:
+      SDL_RenderFillRect(sRenderer, &pointParts[0]);
+      SDL_RenderFillRect(sRenderer, &pointParts[1]);
+      SDL_RenderFillRect(sRenderer, &pointParts[2]);
+      SDL_RenderFillRect(sRenderer, &pointParts[3]);
+      SDL_RenderFillRect(sRenderer, &pointParts[4]);
+      SDL_RenderFillRect(sRenderer, &pointParts[6]);
+      break;
+    case 7:
+      SDL_RenderFillRect(sRenderer, &pointParts[0]);
+      SDL_RenderFillRect(sRenderer, &pointParts[5]);
+      SDL_RenderFillRect(sRenderer, &pointParts[6]);
+      break;
+    case 8:
+      SDL_RenderFillRect(sRenderer, &pointParts[0]);
+      SDL_RenderFillRect(sRenderer, &pointParts[1]);
+      SDL_RenderFillRect(sRenderer, &pointParts[2]);
+      SDL_RenderFillRect(sRenderer, &pointParts[3]);
+      SDL_RenderFillRect(sRenderer, &pointParts[4]);
+      SDL_RenderFillRect(sRenderer, &pointParts[5]);
+      SDL_RenderFillRect(sRenderer, &pointParts[6]);
+      break;
+    default:
+      SDL_RenderFillRect(sRenderer, &pointParts[0]);
+      SDL_RenderFillRect(sRenderer, &pointParts[1]);
+      SDL_RenderFillRect(sRenderer, &pointParts[2]);
+      SDL_RenderFillRect(sRenderer, &pointParts[3]);
+      SDL_RenderFillRect(sRenderer, &pointParts[5]);
+      SDL_RenderFillRect(sRenderer, &pointParts[6]);
+      break;
+  }
+}
+
+// ============================================================================
 // render and present all game objects on the screen.
 static void render(int time)
 {
@@ -665,6 +790,10 @@ static void render(int time)
   SDL_RenderFillRect(sRenderer, &leftPaddle);
   SDL_RenderFillRect(sRenderer, &rightPaddle);
   SDL_RenderFillRect(sRenderer, &ball);
+
+  // render point indicators.
+  render_point(SCORE_LEFT_PARTS, sLeftPoints);
+  render_point(SCORE_RIGHT_PARTS, sRightPoints);
 
   // swap backbuffer to front and vice versa.
   SDL_RenderPresent(sRenderer);
