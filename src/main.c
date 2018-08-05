@@ -551,6 +551,8 @@ static void tcp_receive()
 
           state_set(&sBall, &rect, t);
         } else if (strncmp(token, "reset", 5) == 0) {
+          SDL_assert(sMode == CLIENT);
+
           // get time, countdown and ball directions.
           token = strtok(NULL, ":");
           int t = atoi(token);
