@@ -32,6 +32,8 @@
 #define TIMESTEP 17
 // the maximum size of the state cache.
 #define STATE_CACHE_SIZE 10
+// the amount of milliseconds to wait before each ball launch.
+#define COUNTDOWN_MS 2000
 
 // the height for both paddles at the sides of the scene.
 #define PADDLE_HEIGHT (RESOLUTION_HEIGHT / 6)
@@ -135,6 +137,8 @@ static int get_ticks_without_offset();
 static int get_ticks();
 static int random_vertical_direction();
 static int random_horizontal_direction();
+static void reset_client(int time);
+static void reset_server(int time);
 
 // ============================================================================
 
@@ -173,6 +177,8 @@ static int sTickOffset = 0;
 static int sNextPingTicks = 0;
 // the remote lag used to compensate latency.
 static int sRemoteLag = 0;
+// the countdown time used to detect when ball should be launched.
+static int sCountdown = 0;
 
 // the server's paddle shown at the left side of the scene.
 static DynamicObject sLeftPaddle;
@@ -295,10 +301,10 @@ static void initialize(int argc, char* argv[])
   }
 
   // initialize the ball to start from the middle of the scene.
-  sBall.owned = (sMode == SERVER ? 1 : 0);
+  sBall.owned = 1;
   sBall.most_recent_state_index = 0;
-  sBall.direction_x = (sMode == SERVER ? random_horizontal_direction() : NONE);
-  sBall.direction_y = (sMode == SERVER ? random_vertical_direction() : NONE);
+  sBall.direction_x = NONE;
+  sBall.direction_y = NONE;
   sBall.velocity = BALL_INITIAL_VELOCITY;
   for (int i = 0; i < STATE_CACHE_SIZE; i++) {
     sBall.states[i].time = 0;
@@ -523,7 +529,27 @@ static void tcp_receive()
 
           // create a new state and assign it to states array.
           SDL_Rect rect = {x, y, BALL_WIDTH, BALL_HEIGHT };
+
+          // TODO here we should check whether we need to correct ball rect!
+
           state_set(&sBall, &rect, t);
+        } else if (strncmp(token, "reset", 5) == 0) {
+          // get time, countdown and ball directions.
+          token = strtok(NULL, ":");
+          int t = atoi(token);
+          token = strtok(NULL, ":");
+          sCountdown = atoi(token);
+          token = strtok(NULL, ":");
+          int x = atoi(token);
+          token = strtok(NULL, ":");
+          int y = atoi(token);
+
+          // assign ball directions.
+          sBall.direction_x = x;
+          sBall.direction_y = y;
+
+          // perform a client reset.
+          reset_client(t);
         }
         memset(sStreamBuffer, 0, NETWORK_TCP_BUFFER_SIZE);
         sStreamCursor = 0;
@@ -612,14 +638,11 @@ static void update(int time)
     tcp_send(buffer);
   }
 
-  // update the movement of the right paddle.
-  if (sBall.owned == 1 && sBall.velocity != 0) {
+  // update the movement of the ball.
+  if (sBall.velocity != 0) {
     // move the ball based on the movement direction.
     ball.y += sBall.velocity * sBall.direction_y;
     ball.x += sBall.velocity * sBall.direction_x;
-
-    // update the local state with the new position.
-    state_set(&sBall, &ball, time);
 
     // check whether the ball hits top or bottom walls.
     if (SDL_HasIntersection(&ball, &TOP_WALL)) {
@@ -630,10 +653,29 @@ static void update(int time)
       sBall.direction_y *= -1;
     }
 
-    // send a state update about the movement to remote node.
-    char buffer[NETWORK_TCP_BUFFER_SIZE];
-    snprintf(buffer, NETWORK_TCP_BUFFER_SIZE, "ball:%d:%d:%d", time, ball.x, ball.y);
-    tcp_send(buffer);
+    // check paddle collisions and send updates when required.
+    if (SDL_HasIntersection(&left, &ball)) {
+      ball.x = (left.x + left.w);
+      sBall.direction_x *= -1;
+      if (sLeftPaddle.owned == 1) {
+        // send a state update about the movement to remote node.
+        char buffer[NETWORK_TCP_BUFFER_SIZE];
+        snprintf(buffer, NETWORK_TCP_BUFFER_SIZE, "ball:%d:%d:%d", time, ball.x, ball.y);
+        tcp_send(buffer);
+      }
+    } else if (SDL_HasIntersection(&right, &ball)) {
+      ball.x = (right.x - ball.w);
+      sBall.direction_x *= -1;
+      if (sRightPaddle.owned == 1) {
+        // send a state update about the movement to remote node.
+        char buffer[NETWORK_TCP_BUFFER_SIZE];
+        snprintf(buffer, NETWORK_TCP_BUFFER_SIZE, "ball:%d:%d:%d", time, ball.x, ball.y);
+        tcp_send(buffer);
+      }
+    }
+
+    // update the local state with the new position.
+    state_set(&sBall, &ball, time);
   }
 }
 
@@ -684,6 +726,44 @@ static int random_horizontal_direction()
 }
 
 // ============================================================================
+// reset the game (except points) at the client side.
+static void reset_client(int time)
+{
+  printf("time: %d\n", time);
+  // TODO reset paddles.
+  // TODO reset ball.
+
+  // reset ball velocity back to initial velocity.
+  sBall.velocity = BALL_INITIAL_VELOCITY;
+}
+
+// ============================================================================
+// reset the game (except points) at the server side.
+static void reset_server(int time)
+{
+  // TODO reset paddles.
+  // TODO return ball.
+
+  // reset ball velocity back to initial velocity.
+  sBall.velocity = BALL_INITIAL_VELOCITY;
+
+  // assign a countdown to prevent ball from launching immediately.
+  sCountdown = time + COUNTDOWN_MS;
+
+  // randomize new horizontal- and vertical directions for the ball.
+  sBall.direction_x = random_horizontal_direction();
+  sBall.direction_y = random_vertical_direction();
+
+  // send the reset command to client as well.
+  char buffer[NETWORK_TCP_BUFFER_SIZE];
+  snprintf(buffer,
+    NETWORK_TCP_BUFFER_SIZE,
+    "reset:%d:%d:%d:%d",
+    time, sCountdown, sBall.direction_x, sBall.direction_y);
+  tcp_send(buffer);
+}
+
+// ============================================================================
 
 static void run()
 {
@@ -693,6 +773,11 @@ static void run()
   int deltaAccumulator = 0;
   int ticks = get_ticks_without_offset();
   int previousTicks = ticks;
+
+  if (sMode == SERVER) {
+    reset_server(ticks);
+  }
+
   SDL_Event event;
   while (sState == RUNNING) {
     // get a ticks time and calculate delta.
@@ -773,7 +858,9 @@ static void run()
     int time = get_ticks();
     deltaAccumulator += dt;
     if (deltaAccumulator >= TIMESTEP) {
-      update(time);
+      if (sCountdown <= time) {
+        update(time);
+      }
       deltaAccumulator -= TIMESTEP;
     }
     render(time);
