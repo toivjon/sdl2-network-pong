@@ -621,6 +621,15 @@ static void update(int time)
     // update the local state with the new position.
     state_set(&sBall, &ball, time);
 
+    // check whether the ball hits top or bottom walls.
+    if (SDL_HasIntersection(&ball, &TOP_WALL)) {
+      ball.y = (TOP_WALL.y + TOP_WALL.h);
+      sBall.direction_y *= -1;
+    } else if (SDL_HasIntersection(&ball, &BOTTOM_WALL)) {
+      ball.y = (BOTTOM_WALL.y - ball.h);
+      sBall.direction_y *= -1;
+    }
+
     // send a state update about the movement to remote node.
     char buffer[NETWORK_TCP_BUFFER_SIZE];
     snprintf(buffer, NETWORK_TCP_BUFFER_SIZE, "ball:%d:%d:%d", time, ball.x, ball.y);
