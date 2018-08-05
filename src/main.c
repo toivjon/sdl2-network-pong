@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <limits.h>
 #include <string.h>
 #include <time.h>
 
@@ -34,6 +35,10 @@
 #define STATE_CACHE_SIZE 10
 // the amount of milliseconds to wait before each ball launch.
 #define COUNTDOWN_MS 2000
+// the amount of milliseconds to wait before ending the game.
+#define END_COUNTDOWN_MS 2000
+// the target score limit.
+#define SCORE_LIMIT 10
 
 // the height for both paddles at the sides of the scene.
 #define PADDLE_HEIGHT (RESOLUTION_HEIGHT / 6)
@@ -143,6 +148,7 @@ static int random_vertical_direction();
 static int random_horizontal_direction();
 static void reset_client(int time);
 static void reset_server(int time);
+static void tcp_send(const char* msg);
 
 // ============================================================================
 
@@ -183,6 +189,8 @@ static int sNextPingTicks = 0;
 static int sRemoteLag = 0;
 // the countdown time used to detect when ball should be launched.
 static int sCountdown = 0;
+// the countdown time when the game ends and exits.
+static int sEndCountdown = INT_MAX;
 
 // the server's paddle shown at the left side of the scene.
 static DynamicObject sLeftPaddle;
@@ -248,13 +256,19 @@ static void give_point(int player)
 
   // increment points of the target player.
   printf("A point for %s player!\n", (player == 0 ? "left" : "right"));
+  int endGame = 0;
   if (player == 0) {
     sLeftPoints++;
+    endGame = (sLeftPoints >= SCORE_LIMIT ? 1 : 0);
   } else {
     sRightPoints++;
+    endGame = (sRightPoints >= SCORE_LIMIT ? 1 : 0);
   }
 
-  // TODO handle when the game ends.
+  // check whether we should end the game.
+  if (endGame == 1) {
+    tcp_send("end");
+  }
 }
 
 // ============================================================================
@@ -588,7 +602,7 @@ static void tcp_receive()
         } else if (strncmp(token, "reset", 5) == 0) {
           SDL_assert(sMode == CLIENT);
 
-          // get time, countdown and ball directions.
+          // get time, countdown, ball directions and points.
           token = strtok(NULL, ":");
           int t = atoi(token);
           token = strtok(NULL, ":");
@@ -597,6 +611,10 @@ static void tcp_receive()
           int x = atoi(token);
           token = strtok(NULL, ":");
           int y = atoi(token);
+          token = strtok(NULL, ":");
+          sLeftPoints = atoi(token);
+          token = strtok(NULL, ":");
+          sRightPoints = atoi(token);
 
           // assign ball directions.
           sBall.direction_x = x;
@@ -608,6 +626,13 @@ static void tcp_receive()
           SDL_assert(sMode == SERVER);
           give_point(0);
           reset_server(get_ticks());
+        } else if (strncmp(token, "end-ok", 6) == 0) {
+          SDL_assert(sMode == SERVER);
+          sEndCountdown = get_ticks_without_offset() + END_COUNTDOWN_MS;
+        } else if (strncmp(token, "end", 3) == 0) {
+          SDL_assert(sMode == CLIENT);
+          sEndCountdown = get_ticks_without_offset() + END_COUNTDOWN_MS;
+          tcp_send("end-ok");
         }
         memset(sStreamBuffer, 0, NETWORK_TCP_BUFFER_SIZE);
         sStreamCursor = 0;
@@ -862,8 +887,9 @@ static void reset_server(int time)
   char buffer[NETWORK_TCP_BUFFER_SIZE];
   snprintf(buffer,
     NETWORK_TCP_BUFFER_SIZE,
-    "reset:%d:%d:%d:%d",
-    time, sCountdown, sBall.direction_x, sBall.direction_y);
+    "reset:%d:%d:%d:%d:%d:%d",
+    time, sCountdown, sBall.direction_x, sBall.direction_y,
+    sLeftPoints, sRightPoints);
   tcp_send(buffer);
 }
 
@@ -942,6 +968,12 @@ static void run()
       }
     }
 
+    // check whether it's time to end the game.
+    if (sEndCountdown <= ticks) {
+      sState = STOPPED;
+      break;
+    }
+
     // peek to sockets and process the incoming data.
     int socketState = SDLNet_CheckSockets(sSocketSet, 0);
     if (socketState == -1) {
@@ -970,6 +1002,7 @@ static void run()
     render(time);
     sPreviousTick = time;
   }
+  printf("game ended with results %d - %d\n", sLeftPoints, sRightPoints);
 }
 
 // ============================================================================
