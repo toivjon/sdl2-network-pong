@@ -19,8 +19,8 @@
 
 // the network port used by the application.
 #define NETWORK_PORT 6666
-// the TCP message buffer size.
-#define NETWORK_TCP_BUFFER_SIZE 512
+// the network message buffer size.
+#define NETWORK_BUFFER_SIZE 512
 // the interval to send ping requests.
 #define NETWORK_PING_INTERVAL 1000
 
@@ -232,12 +232,12 @@ static SDL_Renderer* sRenderer = NULL;
 // the socket used in the TCP communication.
 static TCPsocket sTCPsocket = NULL;
 // the message buffer for outgoing TCP stream data.
-static char sTCPSend[NETWORK_TCP_BUFFER_SIZE];
+static char sTCPSend[NETWORK_BUFFER_SIZE];
 // the message buffer for incoming TCP stream data.
-static char sTCPRecv[NETWORK_TCP_BUFFER_SIZE];
+static char sTCPRecv[NETWORK_BUFFER_SIZE];
 
 // the TCP message stream buffer to handle network messages.
-static char sStreamBuffer[NETWORK_TCP_BUFFER_SIZE];
+static char sStreamBuffer[NETWORK_BUFFER_SIZE];
 // the TCP message stream cursor to follow stream content.
 static int sStreamCursor = 0;
 
@@ -576,7 +576,7 @@ static void udp_start()
   }
 
   // allocate memory for the UDP packet to be used with outgoing data.
-  sUDPSendPacket = SDLNet_AllocPacket(NETWORK_TCP_BUFFER_SIZE);
+  sUDPSendPacket = SDLNet_AllocPacket(NETWORK_BUFFER_SIZE);
   if (sUDPSendPacket == NULL) {
     printf("SDLNet_AllocPacket: %s\n", SDLNet_GetError());
     exit(EXIT_FAILURE);
@@ -635,7 +635,7 @@ static void udp_receive()
   SDL_assert(sTransport == UDP);
 
   // allocate memory for a new UDP packet.
-  UDPpacket* packet = SDLNet_AllocPacket(NETWORK_TCP_BUFFER_SIZE);
+  UDPpacket* packet = SDLNet_AllocPacket(NETWORK_BUFFER_SIZE);
   if (packet == NULL) {
     printf("SDLNet_AllocPacket: %s\n", SDLNet_GetError());
     exit(EXIT_FAILURE);
@@ -650,7 +650,7 @@ static void udp_receive()
     sUDPaddress = packet->address;
 
     // copy the UDP package contents into incoming buffer.
-    char buffer[NETWORK_TCP_BUFFER_SIZE];
+    char buffer[NETWORK_BUFFER_SIZE];
     memcpy(buffer, packet->data, packet->len);
     buffer[packet->len] = '\0';
 
@@ -853,7 +853,7 @@ static void tcp_start()
 // send the given message to the remote node by using the TCP socket.
 static void tcp_send(const char* msg)
 {
-  SDL_snprintf(sTCPSend, NETWORK_TCP_BUFFER_SIZE, "%s|", msg);
+  SDL_snprintf(sTCPSend, NETWORK_BUFFER_SIZE, "%s|", msg);
   int size = SDL_strlen(sTCPSend);
   if (SDLNet_TCP_Send(sTCPsocket, sTCPSend, size) != size) {
     printf("SDLNet_TCP_Send: %s\n", SDLNet_GetError());
@@ -866,7 +866,7 @@ static void tcp_send(const char* msg)
 static void tcp_receive()
 {
   // get the incoming stream data from the TCP socket.
-  int bytes = SDLNet_TCP_Recv(sTCPsocket, sTCPRecv, NETWORK_TCP_BUFFER_SIZE);
+  int bytes = SDLNet_TCP_Recv(sTCPsocket, sTCPRecv, NETWORK_BUFFER_SIZE);
   if (bytes <= 0) {
     printf("The connection to the remote node was lost.\n");
     exit(EXIT_FAILURE);
@@ -989,7 +989,7 @@ static void tcp_receive()
           sEndCountdown = get_ticks_without_offset() + END_COUNTDOWN_MS;
           tcp_send("end-ok");
         }
-        memset(sStreamBuffer, 0, NETWORK_TCP_BUFFER_SIZE);
+        memset(sStreamBuffer, 0, NETWORK_BUFFER_SIZE);
         sStreamCursor = 0;
       }
     } else {
@@ -1132,8 +1132,8 @@ static void update(int time)
     state_set(&sLeftPaddle, &left, time);
 
     // send a state update about the movement to remote node.
-    char buffer[NETWORK_TCP_BUFFER_SIZE];
-    snprintf(buffer, NETWORK_TCP_BUFFER_SIZE, "left:%d:%d:%d", time, left.x, left.y);
+    char buffer[NETWORK_BUFFER_SIZE];
+    snprintf(buffer, NETWORK_BUFFER_SIZE, "left:%d:%d:%d", time, left.x, left.y);
     net_send(buffer);
   }
 
@@ -1153,8 +1153,8 @@ static void update(int time)
     state_set(&sRightPaddle, &right, time);
 
     // send a state update about the movement to remote node.
-    char buffer[NETWORK_TCP_BUFFER_SIZE];
-    snprintf(buffer, NETWORK_TCP_BUFFER_SIZE, "right:%d:%d:%d", time, right.x, right.y);
+    char buffer[NETWORK_BUFFER_SIZE];
+    snprintf(buffer, NETWORK_BUFFER_SIZE, "right:%d:%d:%d", time, right.x, right.y);
     net_send(buffer);
   }
 
@@ -1180,9 +1180,9 @@ static void update(int time)
       sBall.velocity += BALL_VELOCITY_INCREMENT;
       if (sLeftPaddle.owned == 1) {
         // send a state update about the movement to remote node.
-        char buffer[NETWORK_TCP_BUFFER_SIZE];
+        char buffer[NETWORK_BUFFER_SIZE];
         snprintf(buffer,
-          NETWORK_TCP_BUFFER_SIZE,
+          NETWORK_BUFFER_SIZE,
           "ball:%d:%d:%d:%d:%d:%d",
           time,
           ball.x,
@@ -1198,9 +1198,9 @@ static void update(int time)
       sBall.velocity += BALL_VELOCITY_INCREMENT;
       if (sRightPaddle.owned == 1) {
         // send a state update about the movement to remote node.
-        char buffer[NETWORK_TCP_BUFFER_SIZE];
+        char buffer[NETWORK_BUFFER_SIZE];
         snprintf(buffer,
-          NETWORK_TCP_BUFFER_SIZE,
+          NETWORK_BUFFER_SIZE,
           "ball:%d:%d:%d:%d:%d:%d",
           time,
           ball.x,
@@ -1250,8 +1250,8 @@ static int get_ticks()
 // send a ping request message to the remote node.
 static void ping_send_request()
 {
-  char buffer[NETWORK_TCP_BUFFER_SIZE];
-  SDL_snprintf(buffer, NETWORK_TCP_BUFFER_SIZE, "ping:%d", get_ticks());
+  char buffer[NETWORK_BUFFER_SIZE];
+  SDL_snprintf(buffer, NETWORK_BUFFER_SIZE, "ping:%d", get_ticks());
   net_send(buffer);
 }
 
@@ -1259,8 +1259,8 @@ static void ping_send_request()
 // send a ping response message (pong) to the remote node.
 static void ping_send_response(int ping)
 {
-  char buffer[NETWORK_TCP_BUFFER_SIZE];
-  snprintf(buffer, NETWORK_TCP_BUFFER_SIZE, "pong:%d:%d", ping, get_ticks());
+  char buffer[NETWORK_BUFFER_SIZE];
+  snprintf(buffer, NETWORK_BUFFER_SIZE, "pong:%d:%d", ping, get_ticks());
   net_send(buffer);
 }
 
@@ -1325,9 +1325,9 @@ static void reset_server(int time)
   sBall.direction_y = random_vertical_direction();
 
   // send the reset command to client as well.
-  char buffer[NETWORK_TCP_BUFFER_SIZE];
+  char buffer[NETWORK_BUFFER_SIZE];
   snprintf(buffer,
-    NETWORK_TCP_BUFFER_SIZE,
+    NETWORK_BUFFER_SIZE,
     "reset:%d:%d:%d:%d:%d:%d",
     time, sCountdown, sBall.direction_x, sBall.direction_y,
     sLeftPoints, sRightPoints);
