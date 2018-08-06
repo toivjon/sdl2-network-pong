@@ -1,8 +1,8 @@
 # the compiler to use.
-CC = g++
+CC = gcc
 
 # compiler compilation options.
-CFLAGS = -std=c++11 -Wall -Wextra
+CFLAGS = -std=c11 -Wall -Wextra
 
 # libraries to link against.
 LFLAGS = -lmingw32 -lSDL2main -lSDL2 -lSDL2_net
@@ -14,13 +14,13 @@ BUILD_PATH = build
 SRC_PATH = src
 
 # a set of source files from the source file folder.
-SRC = $(wildcard $(SRC_PATH)/*.cpp)
+SRC = $(wildcard $(SRC_PATH)/*.c)
 
 # a set of object files based on the resolved source files.
-OBJ = $(SRC:$(SRC_PATH)/%.cpp=$(BUILD_PATH)/%.o)
+OBJ = $(SRC:$(SRC_PATH)/%.c=$(BUILD_PATH)/%.o)
 
 # rule to compile from source to object files.
-$(BUILD_PATH)/%.o: $(SRC_PATH)/%.cpp
+$(BUILD_PATH)/%.o: $(SRC_PATH)/%.c
 	$(CC) -c -o $@ $< $(CFLAGS)
 
 # rule to compile the executable.
