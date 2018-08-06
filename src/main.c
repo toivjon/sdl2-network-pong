@@ -245,6 +245,8 @@ static int sStreamCursor = 0;
 static UDPsocket sUDPsocket = NULL;
 // the port and host used as the UDP communication target.
 static IPaddress sUDPaddress;
+// the outgoing package structure used to send UDP data.
+static UDPpacket* sUDPSendPacket = NULL;
 
 // the socket set used to listen for socket activities.
 static SDLNet_SocketSet sSocketSet = NULL;
@@ -326,6 +328,13 @@ static void close_tcp_socket()
 static void close_udp_socket()
 {
   SDLNet_UDP_Close(sUDPsocket);
+}
+
+// ============================================================================
+// close and destroy the application UDP send packet.
+static void close_udp_send_packet()
+{
+  SDLNet_FreePacket(sUDPSendPacket);
 }
 
 // ============================================================================
@@ -440,7 +449,7 @@ static void initialize(int argc, char* argv[])
     sBall.states[i].rect = BALL_START;
   }
 
-  // initialize function pointers to transport type functions.
+  // initialize function pointers and buffers to transport type functions.
   switch (sTransport) {
     case TCP:
       net_send = &tcp_send;
@@ -541,6 +550,7 @@ static void state_clear(DynamicObject* object, const SDL_Rect* rect, int from)
 static void udp_start()
 {
   SDL_assert(sTransport == UDP);
+  SDL_assert(sUDPsocket == NULL);
 
   // open a socket to be used for UDP packet sending and receiving.
   sUDPsocket = SDLNet_UDP_Open(sMode == SERVER ? NETWORK_PORT : 0);
@@ -564,6 +574,14 @@ static void udp_start()
     printf("SDLNet_UDP_AddSocket: %s\n", SDLNet_GetError());
     exit(EXIT_FAILURE);
   }
+
+  // allocate memory for the UDP packet to be used with outgoing data.
+  sUDPSendPacket = SDLNet_AllocPacket(NETWORK_TCP_BUFFER_SIZE);
+  if (sUDPSendPacket == NULL) {
+    printf("SDLNet_AllocPacket: %s\n", SDLNet_GetError());
+    exit(EXIT_FAILURE);
+  }
+  atexit(close_udp_send_packet);
 
   // make the server to wait until a client joins the game.
   if (sMode == SERVER) {
@@ -596,28 +614,18 @@ static void udp_send(const char* msg)
   SDL_assert(msg != NULL);
   SDL_assert(sTransport == UDP);
 
-  // allocate memory for a new UDP packet.
-  UDPpacket* packet = SDLNet_AllocPacket(NETWORK_TCP_BUFFER_SIZE);
-  if (packet == NULL) {
-    printf("SDLNet_AllocPacket: %s\n", SDLNet_GetError());
-    exit(EXIT_FAILURE);
-  }
-
   // copy the target message into the packet.
   int size = SDL_strlen(msg);
-  memcpy(packet->data, msg, size);
-  packet->len = size;
-  packet->address = sUDPaddress;
+  memcpy(sUDPSendPacket->data, msg, size);
+  sUDPSendPacket->len = size;
+  sUDPSendPacket->address = sUDPaddress;
 
   // send the given packet to remote nodes.
-  int sent = SDLNet_UDP_Send(sUDPsocket, -1, packet);
+  int sent = SDLNet_UDP_Send(sUDPsocket, -1, sUDPSendPacket);
   if (sent == 0) {
     printf("SDLNet_UDP_Send: %s\n", SDLNet_GetError());
     exit(EXIT_FAILURE);
   }
-
-  // release memory reserved for the packet.
-  SDLNet_FreePacket(packet);
 }
 
 // ============================================================================
