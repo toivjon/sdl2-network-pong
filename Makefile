@@ -2,7 +2,7 @@
 CC = gcc
 
 # compiler compilation options.
-CFLAGS = -std=c11 -Wall -Wextra
+CFLAGS = -std=c11 -pedantic-errors -Wall -Wextra
 
 # libraries to link against.
 LFLAGS = -lmingw32 -lSDL2main -lSDL2 -lSDL2_net
