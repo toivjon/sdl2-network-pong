@@ -87,6 +87,17 @@ enum Mode { CLIENT, SERVER };
 enum State { RUNNING, STOPPED };
 // available dynamic object movement directions.
 enum Direction { UP = -1, DOWN = 1, LEFT = -1, RIGHT = 1, NONE = 0 };
+// available network transport modes.
+enum Transport { TCP, UDP };
+
+// ============================================================================
+
+// a function pointer type for sending messages over the network.
+typedef void (*net_send_func)(const char*);
+// a function pointer type for receiving messages from the network.
+typedef void (*net_receive_func)();
+// a function pointer type for the network system initialization.
+typedef void (*net_start_func)();
 
 // ============================================================================
 
@@ -198,6 +209,11 @@ static int random_horizontal_direction();
 static void reset_client(int time);
 static void reset_server(int time);
 static void tcp_send(const char* msg);
+static void udp_send(const char* msg);
+static void tcp_receive();
+static void udp_receive();
+static void tcp_start();
+static void udp_start();
 
 // ============================================================================
 
@@ -205,6 +221,8 @@ static void tcp_send(const char* msg);
 static int sMode = SERVER;
 // the network host (NULL for server).
 static char* sHost = NULL;
+// the network transport mode (TCP/UDP).
+static int sTransport = TCP;
 
 // the main window of the application.
 static SDL_Window* sWindow = NULL;
@@ -222,6 +240,11 @@ static char sTCPRecv[NETWORK_TCP_BUFFER_SIZE];
 static char sStreamBuffer[NETWORK_TCP_BUFFER_SIZE];
 // the TCP message stream cursor to follow stream content.
 static int sStreamCursor = 0;
+
+// the socket used in the UDP communication.
+static UDPsocket sUDPsocket = NULL;
+// the port and host used as the UDP communication target.
+static IPaddress sUDPaddress;
 
 // the socket set used to listen for socket activities.
 static SDLNet_SocketSet sSocketSet = NULL;
@@ -252,6 +275,13 @@ static DynamicObject sBall;
 static int sLeftPoints = 0;
 // the points of the right player.
 static int sRightPoints = 0;
+
+// a function pointer to a function to send data to remote node.
+static net_send_func net_send = &tcp_send;
+// a function pointer to a function to receive data from a remote node.
+static net_receive_func net_receive = &tcp_receive;
+// a function pointer to a function to initialize the network system.
+static net_start_func net_start = &tcp_start;
 
 // ============================================================================
 
@@ -290,6 +320,13 @@ static void close_tcp_socket()
 }
 
 // ============================================================================
+// close and destroy the application UDP socket.
+static void close_udp_socket()
+{
+  SDLNet_UDP_Close(sUDPsocket);
+}
+
+// ============================================================================
 // close and destroy the application's socket set.
 static void close_socket_set()
 {
@@ -316,7 +353,7 @@ static void give_point(int player)
 
   // check whether we should end the game.
   if (endGame == 1) {
-    tcp_send("end");
+    net_send("end");
   }
 }
 
@@ -400,6 +437,24 @@ static void initialize(int argc, char* argv[])
     sBall.states[i].time = 0;
     sBall.states[i].rect = BALL_START;
   }
+
+  // initialize function pointers to transport type functions.
+  switch (sTransport) {
+    case TCP:
+      net_send = &tcp_send;
+      net_receive = &tcp_receive;
+      net_start = &tcp_start;
+      break;
+    case UDP:
+      net_send = &udp_send;
+      net_receive = &udp_receive;
+      net_start = &udp_start;
+      break;
+    default:
+      printf("Unsupported transport %d!\n", sTransport);
+      exit(EXIT_FAILURE);
+      break;
+  }
 }
 
 // ============================================================================
@@ -480,9 +535,246 @@ static void state_clear(DynamicObject* object, const SDL_Rect* rect, int from)
 }
 
 // ============================================================================
+// start a UDP communication with a remote node.
+static void udp_start()
+{
+  SDL_assert(sTransport == UDP);
+
+  // open a socket to be used for UDP packet sending and receiving.
+  sUDPsocket = SDLNet_UDP_Open(sMode == SERVER ? NETWORK_PORT : 0);
+  if (sUDPsocket == NULL) {
+    printf("SDLNet_UDP_Open: %s\n", SDLNet_GetError());
+    exit(EXIT_FAILURE);
+  }
+  printf("Successfully opened a new UDP socket.\n");
+  atexit(close_udp_socket);
+
+  // allocate a socket set to enable socket activity listening.
+  sSocketSet = SDLNet_AllocSocketSet(1);
+  if (sSocketSet == NULL) {
+    printf("SDLNet_AllocSocketSet: %s\n", SDLNet_GetError());
+    exit(EXIT_FAILURE);
+  }
+  atexit(close_socket_set);
+
+  // add the opened TCP socket into the socket set.
+  if (SDLNet_UDP_AddSocket(sSocketSet, sUDPsocket) == -1) {
+    printf("SDLNet_UDP_AddSocket: %s\n", SDLNet_GetError());
+    exit(EXIT_FAILURE);
+  }
+
+  // make the server to wait until a client joins the game.
+  if (sMode == SERVER) {
+    printf("Waiting for a client to join the game...\n");
+    if (SDLNet_CheckSockets(sSocketSet, -1) == -1) {
+      printf("SDLNet_CheckSockets: %s\n", SDLNet_GetError());
+      perror("SDLNEt_CheckSockets");
+      exit(EXIT_FAILURE);
+    }
+    printf("Client connected?\n");
+    net_receive();
+  } else {
+    // resolve the target host address.
+    if (SDLNet_ResolveHost(&sUDPaddress, sHost, NETWORK_PORT) != 0) {
+      printf("SDLNet_ResolveHost: %s\n", SDLNet_GetError());
+      exit(EXIT_FAILURE);
+    }
+
+    // send the initial joining message to the server.
+    printf("Sending a hello message to server...\n");
+    net_send("hello");
+    // TODO: wait and ensure that we get a response from the server.
+  }
+}
+
+// ============================================================================
+// send the given message to the remote node by using the UDP socket.
+static void udp_send(const char* msg)
+{
+  SDL_assert(msg != NULL);
+  SDL_assert(sTransport == UDP);
+
+  // allocate memory for a new UDP packet.
+  UDPpacket* packet = SDLNet_AllocPacket(NETWORK_TCP_BUFFER_SIZE);
+  if (packet == NULL) {
+    printf("SDLNet_AllocPacket: %s\n", SDLNet_GetError());
+    exit(EXIT_FAILURE);
+  }
+
+  // copy the target message into the packet.
+  int size = SDL_strlen(msg);
+  memcpy(packet->data, msg, size);
+  packet->len = size;
+  packet->address = sUDPaddress;
+
+  // send the given packet to remote nodes.
+  int sent = SDLNet_UDP_Send(sUDPsocket, -1, packet);
+  if (sent == 0) {
+    printf("SDLNet_UDP_Send: %s\n", SDLNet_GetError());
+    exit(EXIT_FAILURE);
+  }
+
+  // release memory reserved for the packet.
+  SDLNet_FreePacket(packet);
+}
+
+// ============================================================================
+// receive data from the remote node by using the UDP socket.
+static void udp_receive()
+{
+  SDL_assert(sTransport == UDP);
+
+  // allocate memory for a new UDP packet.
+  UDPpacket* packet = SDLNet_AllocPacket(NETWORK_TCP_BUFFER_SIZE);
+  if (packet == NULL) {
+    printf("SDLNet_AllocPacket: %s\n", SDLNet_GetError());
+    exit(EXIT_FAILURE);
+  }
+
+  int packets = SDLNet_UDP_Recv(sUDPsocket, packet);
+  if (packets == -1) {
+    printf("SDLNet_UDP_Rect: %s\n", SDLNet_GetError());
+    exit(EXIT_FAILURE);
+  } else if (packets == 1) {
+    // ensure that we use the source address for outgoing messages.
+    sUDPaddress = packet->address;
+
+    // copy the UDP package contents into incoming buffer.
+    char buffer[NETWORK_TCP_BUFFER_SIZE];
+    memcpy(buffer, packet->data, packet->len);
+    buffer[packet->len] = '\0';
+
+    // process the message by using a tokenization.
+    char* token = strtok(buffer, ":");
+    if (strncmp(token, "quit", 4) == 0) {
+      printf("Remote node has closed the connection: Closing application...\n");
+      sState = STOPPED;
+    } else if (strncmp(token, "ping", 4) == 0) {
+      // get the ping time from the request.
+      token = strtok(NULL, ":");
+      int t0 = atoi(token);
+
+      // send a pong response back to requester.
+      ping_send_response(t0);
+    } else if (strncmp(token, "pong", 4) == 0) {
+      // get ping and pong times.
+      token = strtok(NULL, ":");
+      int t0 = atoi(token);
+      token = strtok(NULL, ":");
+      int t1 = atoi(token);
+
+      // calculate latency and delta to adjust clock offset and remote lag.
+      int t2 = get_ticks();
+      int rtt = (t2 - t0);
+      int lag = (rtt / 2);
+      sRemoteLag = lag + (50 - (lag % 50));
+      if (sMode == SERVER) {
+        printf("rtt:%d remoteLag:%d\n", rtt, sRemoteLag);
+      } else {
+        int cc = ((t1 - t0) + (t1 - t2)) / 2;
+        sTickOffset += cc;
+        printf("rtt:%d remoteLag:%d cc:%d co:%d\n", rtt, sRemoteLag, cc, sTickOffset);
+      }
+    } else if (strncmp(token, "left", 4) == 0) {
+        // get time, x and y positions.
+        token = strtok(NULL, ":");
+        int t = atoi(token);
+        token = strtok(NULL, ":");
+        int x = atoi(token);
+        token = strtok(NULL, ":");
+        int y = atoi(token);
+
+        // create a new state and assign it to states array.
+        SDL_Rect rect = {x, y, PADDLE_WIDTH, PADDLE_HEIGHT };
+        state_set(&sLeftPaddle, &rect, t);
+    } else if (strncmp(token, "right", 5) == 0) {
+      // get time, x and y positions.
+      token = strtok(NULL, ":");
+      int t = atoi(token);
+      token = strtok(NULL, ":");
+      int x = atoi(token);
+      token = strtok(NULL, ":");
+      int y = atoi(token);
+
+      // create a new state and assign it to states array.
+      SDL_Rect rect = {x, y, PADDLE_WIDTH, PADDLE_HEIGHT };
+      state_set(&sRightPaddle, &rect, t);
+    } else if (strncmp(token, "ball", 4) == 0) {
+      // get time, x and y positions.
+      token = strtok(NULL, ":");
+      int t = atoi(token);
+      token = strtok(NULL, ":");
+      int x = atoi(token);
+      token = strtok(NULL, ":");
+      int y = atoi(token);
+      token = strtok(NULL, ":");
+      int dirX = atoi(token);
+      token = strtok(NULL, ":");
+      int dirY = atoi(token);
+      token = strtok(NULL, ":");
+      int velocity = atoi(token);
+
+      // check if we need to correct the position and direction of the ball.
+      SDL_Rect rect = {x, y, BALL_WIDTH, BALL_HEIGHT };
+      SDL_Rect usedRect = state_get(&sBall, t);
+      if (usedRect.x != rect.x || usedRect.y != rect.y
+        || dirX != sBall.direction_x || dirY != sBall.direction_y
+        || velocity != sBall.velocity) {
+        state_clear(&sBall, &rect, t);
+        state_set(&sBall, &rect, t);
+        sBall.direction_x = dirX;
+        sBall.direction_y = dirY;
+        sBall.velocity = velocity;
+      }
+    } else if (strncmp(token, "reset", 5) == 0) {
+      SDL_assert(sMode == CLIENT);
+
+      // get time, countdown, ball directions and points.
+      token = strtok(NULL, ":");
+      int t = atoi(token);
+      token = strtok(NULL, ":");
+      sCountdown = atoi(token);
+      token = strtok(NULL, ":");
+      int x = atoi(token);
+      token = strtok(NULL, ":");
+      int y = atoi(token);
+      token = strtok(NULL, ":");
+      sLeftPoints = atoi(token);
+      token = strtok(NULL, ":");
+      sRightPoints = atoi(token);
+
+      // assign ball directions.
+      sBall.direction_x = x;
+      sBall.direction_y = y;
+
+      // perform a client reset.
+      reset_client(t);
+    } else if (strncmp(token, "goal", 4) == 0) {
+      SDL_assert(sMode == SERVER);
+      give_point(0);
+      reset_server(get_ticks());
+    } else if (strncmp(token, "end-ok", 6) == 0) {
+      SDL_assert(sMode == SERVER);
+      sEndCountdown = get_ticks_without_offset() + END_COUNTDOWN_MS;
+    } else if (strncmp(token, "end", 3) == 0) {
+      SDL_assert(sMode == CLIENT);
+      sEndCountdown = get_ticks_without_offset() + END_COUNTDOWN_MS;
+      net_send("end-ok");
+    }
+  } else {
+    printf("There was %d packets in the UDP queue!\n", packets);
+  }
+
+  // release memory reserved for the packet.
+  SDLNet_FreePacket(packet);
+}
+
+// ============================================================================
 // a blocking call to start a TCP communication with a remote node.
 static void tcp_start()
 {
+  SDL_assert(sTransport == TCP);
+
   // resolve the target host address.
   IPaddress ip;
   if (SDLNet_ResolveHost(&ip, sHost, NETWORK_PORT) != 0) {
@@ -832,7 +1124,7 @@ static void update(int time)
     // send a state update about the movement to remote node.
     char buffer[NETWORK_TCP_BUFFER_SIZE];
     snprintf(buffer, NETWORK_TCP_BUFFER_SIZE, "left:%d:%d:%d", time, left.x, left.y);
-    tcp_send(buffer);
+    net_send(buffer);
   }
 
   // update the right paddle whether it's being owned and actually moving.
@@ -853,7 +1145,7 @@ static void update(int time)
     // send a state update about the movement to remote node.
     char buffer[NETWORK_TCP_BUFFER_SIZE];
     snprintf(buffer, NETWORK_TCP_BUFFER_SIZE, "right:%d:%d:%d", time, right.x, right.y);
-    tcp_send(buffer);
+    net_send(buffer);
   }
 
   // update the movement of the ball.
@@ -888,7 +1180,7 @@ static void update(int time)
           sBall.direction_x,
           sBall.direction_y,
           sBall.velocity);
-        tcp_send(buffer);
+        net_send(buffer);
       }
     } else if (SDL_HasIntersection(&right, &ball)) {
       ball.x = (right.x - ball.w);
@@ -906,7 +1198,7 @@ static void update(int time)
           sBall.direction_x,
           sBall.direction_y,
           sBall.velocity);
-        tcp_send(buffer);
+        net_send(buffer);
       }
     }
 
@@ -919,7 +1211,7 @@ static void update(int time)
       }
     } else {
       if (SDL_HasIntersection(&ball, &RIGHT_GOAL)) {
-        tcp_send("goal");
+        net_send("goal");
         reset_client(time);
         return;
       }
@@ -950,7 +1242,7 @@ static void ping_send_request()
 {
   char buffer[NETWORK_TCP_BUFFER_SIZE];
   SDL_snprintf(buffer, NETWORK_TCP_BUFFER_SIZE, "ping:%d", get_ticks());
-  tcp_send(buffer);
+  net_send(buffer);
 }
 
 // ============================================================================
@@ -959,7 +1251,7 @@ static void ping_send_response(int ping)
 {
   char buffer[NETWORK_TCP_BUFFER_SIZE];
   snprintf(buffer, NETWORK_TCP_BUFFER_SIZE, "pong:%d:%d", ping, get_ticks());
-  tcp_send(buffer);
+  net_send(buffer);
 }
 
 // ============================================================================
@@ -1029,14 +1321,14 @@ static void reset_server(int time)
     "reset:%d:%d:%d:%d:%d:%d",
     time, sCountdown, sBall.direction_x, sBall.direction_y,
     sLeftPoints, sRightPoints);
-  tcp_send(buffer);
+  net_send(buffer);
 }
 
 // ============================================================================
 
 static void run()
 {
-  tcp_start();
+  net_start();
   ping_send_request();
 
   int deltaAccumulator = 0;
@@ -1120,7 +1412,7 @@ static void run()
       perror("SDLNet_CheckSockets");
       break;
     } else if (socketState > 0) {
-      tcp_receive();
+      net_receive();
     }
 
     // send ping request with the predefined interval.
@@ -1140,6 +1432,9 @@ static void run()
     }
     render(time);
     sPreviousTick = time;
+  }
+  if (sTransport == UDP) {
+    net_send("quit");
   }
   printf("game ended with results %d - %d\n", sLeftPoints, sRightPoints);
 }
