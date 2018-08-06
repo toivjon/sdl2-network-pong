@@ -289,13 +289,15 @@ static void parse_arguments(int argc, char* argv[])
 {
   // parse definitions from the provided command line arguments.
   printf("Parsing [%d] argument(s)...\n", (argc - 1));
-  sMode = (argc > 1 ? CLIENT : SERVER);
-  sHost = (argc <= 1 ? NULL : argv[1]);
+  sMode = (argc > 2 ? CLIENT : SERVER);
+  sTransport = (argc <= 1 ? TCP : strncmp("tcp", argv[1], 3) == 0 ? TCP : UDP);
+  sHost = (argc <= 2 ? NULL : argv[2]);
 
   // inform about the successfully parse values.
   printf("Parsed following arguments from the command line:\n");
   printf("\tmode: %s\n", (sMode == CLIENT ? "client" : "server"));
   printf("\thost: %s\n", (sHost == NULL ? "" : sHost));
+  printf("\ttype: %s\n", (sTransport == TCP ? "TCP" : "UDP"));
 }
 
 // ============================================================================
