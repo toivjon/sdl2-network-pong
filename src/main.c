@@ -616,6 +616,7 @@ static void udp_send(const char* msg)
 
   // copy the target message into the packet.
   int size = SDL_strlen(msg);
+  SDL_assert(size <= NETWORK_BUFFER_SIZE);
   memcpy(sUDPSendPacket->data, msg, size);
   sUDPSendPacket->len = size;
   sUDPSendPacket->address = sUDPaddress;
@@ -855,6 +856,7 @@ static void tcp_send(const char* msg)
 {
   SDL_snprintf(sTCPSend, NETWORK_BUFFER_SIZE, "%s|", msg);
   int size = SDL_strlen(sTCPSend);
+  SDL_assert(size <= NETWORK_BUFFER_SIZE);
   if (SDLNet_TCP_Send(sTCPsocket, sTCPSend, size) != size) {
     printf("SDLNet_TCP_Send: %s\n", SDLNet_GetError());
     exit(EXIT_FAILURE);
