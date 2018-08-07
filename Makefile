@@ -11,7 +11,7 @@ LFLAGS = -lmingw32 -lSDL2main -lSDL2 -lSDL2_net
 BUILD_PATH = build
 
 # the path to source files.
-SRC_PATH = src
+SRC_PATH = .
 
 # a set of source files from the source file folder.
 SRC = $(wildcard $(SRC_PATH)/*.c)
